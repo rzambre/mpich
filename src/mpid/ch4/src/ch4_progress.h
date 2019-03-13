@@ -14,6 +14,78 @@
 #include "ch4_impl.h"
 
 #undef FUNCNAME
+#define FUNCNAME MPIDI_Progress_vci_safe
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_vci_safe(int flags, int ch4_vci)
+{
+    int mpi_errno, nm_vci;
+    mpi_errno = MPI_SUCCESS;
+
+    nm_vci = ch4_vci;
+
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_global.vci_lock); 
+#ifdef MPIDI_CH4_USE_WORK_QUEUES
+    mpi_errno = MPIDI_workq_vci_progress_unsafe();
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
+#endif
+    if (flags & MPIDI_PROGRESS_NM) {
+        mpi_errno = MPIDI_NM_progress(nm_vci, 0);
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    }
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+    int shm_vci = ch4_vci;
+    if (flags & MPIDI_PROGRESS_SHM) {
+        mpi_errno = MPIDI_SHM_progress(shm_vci, 0);
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    }
+#endif
+
+  fn_exit:
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_global.vci_lock);
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+#undef FUNCNAME
+#define FUNCNAME MPIDI_Progress_hooks_safe
+#undef FCNAME
+#define FCNAME MPL_QUOTE(FUNCNAME)
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_hooks_safe()
+{
+    int mpi_errno, made_progress, i;
+    mpi_errno = MPI_SUCCESS;
+
+    for (i = 0; i < MPIDI_global.registered_progress_hooks; i++) {
+        progress_func_ptr_t func_ptr = NULL;
+        MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
+        if (MPIDI_global.progress_hooks[i].active == TRUE) {
+            MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
+            func_ptr = MPIDI_global.progress_hooks[i].func_ptr;
+            MPIR_Assert(func_ptr != NULL);
+            mpi_errno = func_ptr(&made_progress);
+            if (mpi_errno)
+                MPIR_ERR_POP(mpi_errno);
+
+        } else {
+            MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
+        }
+    }
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+} 
+
+#undef FUNCNAME
 #define FUNCNAME MPIDI_Progress_test
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
@@ -35,47 +107,19 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(int flags)
 #endif
 
     if (flags & MPIDI_PROGRESS_HOOKS) {
-        for (i = 0; i < MPIDI_global.registered_progress_hooks; i++) {
-            progress_func_ptr_t func_ptr = NULL;
-            MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
-            if (MPIDI_global.progress_hooks[i].active == TRUE) {
-                MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
-                func_ptr = MPIDI_global.progress_hooks[i].func_ptr;
-                MPIR_Assert(func_ptr != NULL);
-                mpi_errno = func_ptr(&made_progress);
-                if (mpi_errno)
-                    MPIR_ERR_POP(mpi_errno);
-
-            } else {
-                MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
-            }
-
+        mpi_errno = MPIDI_Progress_hooks_safe();
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
         }
     }
     /* todo: progress unexp_list */
 
-    mpi_errno = MPIDI_workq_vci_progress();
-    if (mpi_errno != MPI_SUCCESS)
-        MPIR_ERR_POP(mpi_errno);
-
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_global.vci_lock);
-
-    if (flags & MPIDI_PROGRESS_NM) {
-        mpi_errno = MPIDI_NM_progress(0, 0);
-        if (mpi_errno != MPI_SUCCESS) {
-            MPIR_ERR_POP(mpi_errno);
-        }
+    mpi_errno = MPIDI_Progress_vci_safe(flags, 0);
+    if (mpi_errno != MPI_SUCCESS) {
+       MPIR_ERR_POP(mpi_errno); 
     }
-#ifndef MPIDI_CH4_DIRECT_NETMOD
-    if (flags & MPIDI_PROGRESS_SHM) {
-        mpi_errno = MPIDI_SHM_progress(0, 0);
-        if (mpi_errno != MPI_SUCCESS) {
-            MPIR_ERR_POP(mpi_errno);
-        }
-    }
-#endif
+
   fn_exit:
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_global.vci_lock);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_PROGRESS_TEST);
     return mpi_errno;
   fn_fail:
