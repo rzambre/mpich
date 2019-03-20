@@ -165,6 +165,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Comm_create_hook(MPIR_Comm * comm)
     int mpi_errno;
     int i, *uniq_avtids;
     int max_n_avts;
+    int vci, vci_i;
+    MPIDI_VCI_resource vci_resources;
+    MPIDI_VCI_type vci_type;
+    MPIDI_VCI_property vci_properties;
+
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_COMM_CREATE_HOOK);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_COMM_CREATE_HOOK);
 
@@ -209,6 +214,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Comm_create_hook(MPIR_Comm * comm)
             default:
                 MPIDIU_avt_add_ref(MPIDI_COMM(comm, local_map).avtid);
         }
+
+        /* translate info hints here */
+        vci_resources = MPIDI_VCI_RESOURCE__GENERIC;
+        vci_properties = MPIDI_VCI_PROPERTY__GENERIC;
+        /* for now, always ask for exclusive first */
+        vci_type = MPIDI_VCI_TYPE__EXCLUSIVE;
+
+        MPIDI_VCI_alloc(vci_resources, vci_type, vci_properties, &vci);
+        /* if the request for a VCI cannot be satisfied, ask for the shared VCI */
+        if (vci == MPIDI_VCI_ALLOC_FAILED) {
+            MPIDI_VCI_alloc(MPIDI_VCI_RESOURCE__GENERIC, MPIDI_VCI_TYPE__SHARED,
+                    MPIDI_VCI_PROPERTY__GENERIC, &vci);
+        }
+        // TODO: store the VCI in the comm
+
     }
 
     mpi_errno = MPIDI_NM_mpi_comm_create_hook(comm);

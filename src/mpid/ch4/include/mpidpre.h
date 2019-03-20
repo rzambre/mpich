@@ -492,6 +492,8 @@ typedef struct MPIDI_Devcomm_t {
 
         MPIDI_rank_map_t map;
         MPIDI_rank_map_t local_map;
+
+        MPIDI_VCI_hash_t hash;
     } ch4;
 } MPIDI_Devcomm_t;
 #define MPIDIG_COMM(comm,field) ((comm)->dev.ch4.am).field

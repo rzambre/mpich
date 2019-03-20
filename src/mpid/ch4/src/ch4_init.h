@@ -207,7 +207,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
 {
     int pmi_errno, mpi_errno = MPI_SUCCESS, rank, has_parent, size, appnum, thr_err;
     int avtid;
-    int n_nm_vcis_provided;
+    int max_vcis, root_vci, n_nm_vcis_provided;
 #ifndef MPIDI_CH4_DIRECT_NETMOD
     int n_shm_vcis_provided;
 #endif
@@ -335,7 +335,10 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
     MPIDI_workq_init(&MPIDI_global.workqueue);
 #endif /* #if defined(MPIDI_CH4_USE_WORK_QUEUES) */
 
-
+    MPID_Thread_mutex_create(&MPIDI_VCI_POOL(lock), &mpi_errno);
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POPFATAL(mpi_errno);
+    }
     if (MPIR_CVAR_CH4_RUNTIME_CONF_DEBUG && rank == 0)
         MPIDI_print_runtime_configurations();
 
@@ -443,8 +446,33 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
             MPIR_ERR_POPFATAL(mpi_errno);
         }
 
+        /* Statically allocate the maximum possible size of the CH4 VCI pool. 
+         * The root VCI takes 1 NM and 1 SHM VCI. The rest could be VSI-only
+         * or VNI-only VCIs. It is guaranteed that we have at least 1 VNI and
+         * at least 1 VSI. */
+#ifndef MPIDI_CH4_DIRECT_NETMOD
+        max_vcis = 1 + (n_nm_vcis_provided - 1) + (n_shm_vcis_provided - 1);
+#else
+        max_vcis = n_nm_vcis_provided;
+#endif
+        MPIDI_VCI_POOL(max_vcis) = max_vcis;
+        MPIDI_CH4_Global.vci_pool.vcis = MPL_malloc(max_vcis * sizeof(MPIDI_VCI_t), MPL_MEM_OTHER);
+
         /* Use the minimum tag_bits from the netmod and shmod */
         MPIR_Process.tag_bits = MPL_MIN(shm_tag_bits, nm_tag_bits);
+    }
+
+    /* Allocate the root VCI */
+    MPIDI_VCI_alloc(MPIDI_VCI_RESOURCE__GENERIC, MPIDI_VCI_TYPE__SHARED, MPIDI_VCI_PROPERTY__GENERIC, &root_vci);
+    if (!MPIDI_VCI_POOL(vcis)[0]) {
+        mpi_errno = MPI_ERR_OTHER;
+        MPIR_ERR_POP(mpi_errno);
+    }
+    /* Set the next free index in the VCI pool */
+    if (MPIDI_VCI_POOL(max_vcis) == 1) {
+        MPIDI_VCI_POOL(next_free_vci) = MPIDI_NO_FREE_VCI;
+    } else {
+        MPIDI_VCI_POOL(next_free_vci) = 1;
     }
 
     /* Call any and all MPID_Init type functions */
