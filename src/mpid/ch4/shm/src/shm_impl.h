@@ -2238,6 +2238,33 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_mpi_op_free_hook(MPIR_Op * op_p)
     return ret;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_vsi_alloc(MPIDI_VSI_resource_t resources,
+                                                 MPIDI_VSI_property_t properties, int *vsi)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_SHM_VSI_ALLOC);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_VSI_ALLOC);
+
+    ret = MPIDI_SHM_src_funcs.vsi_alloc(resources, properties, vsi);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_SHM_VSI_ALLOC);
+    return ret;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_SHM_vsi_free(int vsi)
+{
+    int ret;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_SHM_VSI_FREE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_SHM_VSI_FREE);
+
+    ret = MPIDI_SHM_src_funcs.vsi_free(vsi);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_SHM_VSI_FREE);
+    return ret;
+}
+
 #endif /* SHM_DISABLE_INLINES  */
 
 #else

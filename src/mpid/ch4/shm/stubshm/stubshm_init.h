@@ -141,6 +141,29 @@ static inline int MPIDI_STUBSHM_create_intercomm_from_lpids(MPIR_Comm * newcomm_
     return MPI_SUCCESS;
 }
 
+int MPIDI_STUBSHM_vsi_alloc(MPIDI_VSI_resource_t resources, MPIDI_VSI_property_t properties,
+                            int *vsi)
+{
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_STUBSHM_VSI_ALLOC);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_STUBSHM_VSI_ALLOC);
+
+    MPIR_Assert(0);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_STUBSHM_VSI_ALLOC);
+    return MPI_SUCCESS;
+}
+
+int MPIDI_STUBSHM_vsi_free(int vsi)
+{
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_STUBSHM_VSI_FREE);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_STUBSHM_VSI_FREE);
+
+    MPIR_Assert(0);
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_STUBSHM_VSI_FREE);
+    return MPI_SUCCESS;
+}
+
 #undef FUNCNAME
 #define FUNCNAME MPIDI_STUBSHM_mpi_type_commit_hook
 #undef FCNAME

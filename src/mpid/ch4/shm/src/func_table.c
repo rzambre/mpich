@@ -60,7 +60,10 @@ MPIDI_SHM_funcs_t MPIDI_SHM_src_funcs = {
     .am_send_hdr_reply = MPIDI_SHM_am_send_hdr_reply,
     .am_isend_reply = MPIDI_SHM_am_isend_reply,
     .am_hdr_max_sz = MPIDI_SHM_am_hdr_max_sz,
-    .am_recv = MPIDI_SHM_am_recv
+    .am_recv = MPIDI_SHM_am_recv,
+    /* VSI pool API */
+    .vsi_alloc = MPIDI_SHM_vsi_alloc,
+    .vsi_free = MPIDI_SHM_vsi_free
 };
 
 MPIDI_SHM_native_funcs_t MPIDI_SHM_native_src_funcs = {
