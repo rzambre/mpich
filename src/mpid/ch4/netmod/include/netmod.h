@@ -16,6 +16,8 @@
 
 #define MPIDI_MAX_NETMOD_STRING_LEN 64
 
+#define MPIDI_VNI_INVALID -1
+
 /* VNI resources */
 typedef enum {
     MPIDI_VNI_RESOURCE__TX = 0x1,       /* Can send */
@@ -25,11 +27,31 @@ typedef enum {
 #define MPIDI_VNI_RESOURCE__GENERIC = MPIDI_VNI_RESOURCE__TX | \
                                       MPIDI_VNI_RESOURCE__RX
 
+/* VNI properties */
+typedef enum {
+    MPIDI_VNI_PROPERTY__TAGGED_ORDERED = 0x1,
+    MPIDI_VNI_PROPERTY__TAGGED_UNORDERED = 0x2,
+    MPIDI_VNI_PROPERTY__RAR = 0x4,
+    MPIDI_VNI_PROPERTY__WAR = 0x8,
+    MPIDI_VNI_PROPERTY__RAW = 0x10,
+    MPIDI_VNI_PROPERTY__WAW = 0x20,
+} MPIDI_vni_property_t;
+
+#define MPIDI_VNI_PROPERTY__GENERIC = MPIDI_VNI_PROPERTY__TAGGED_ORDERED | \
+                                      MPIDI_VNI_PROPERTY__TAGGED_UNORDERED | \
+                                      MPIDI_VNI_PROPERTY__RAR | \
+                                      MPIDI_VNI_PROPERTY__WAR | \
+                                      MPIDI_VNI_PROPERTY__RAW | \
+                                      MPIDI_VNI_PROPERTY__WAW
+
 typedef int (*MPIDI_NM_mpi_init_t) (int rank, int size, int appnum, int *tag_bits,
                                     MPIR_Comm * comm_world, MPIR_Comm * comm_self, int spawned,
                                     int *n_vnis_provided);
 typedef int (*MPIDI_NM_mpi_finalize_t) (void);
 typedef MPIDI_vni_resource_t(*MPIDI_NM_vni_get_resource_info_t) (int vni);
+typedef int (*MPIDI_NM_vni_alloc_t) (MPIDI_vni_resource_t resources,
+                                     MPIDI_vni_property_t properties, int *vni);
+typedef int (*MPIDI_NM_vni_free_t) (int vni);
 typedef int (*MPIDI_NM_progress_t) (int vni, int blocking);
 typedef int (*MPIDI_NM_mpi_comm_connect_t) (const char *port_name, MPIR_Info * info, int root,
                                             int timeout, MPIR_Comm * comm,
@@ -485,6 +507,8 @@ typedef struct MPIDI_NM_funcs {
     MPIDI_NM_mpi_init_t mpi_init;
     MPIDI_NM_mpi_finalize_t mpi_finalize;
     MPIDI_NM_vni_get_resource_info_t vni_get_resource_info;
+    MPIDI_NM_vni_alloc_t vni_alloc;
+    MPIDI_NM_vni_free_t vni_free;
     MPIDI_NM_progress_t progress;
     MPIDI_NM_mpi_comm_connect_t mpi_comm_connect;
     MPIDI_NM_mpi_comm_disconnect_t mpi_comm_disconnect;
@@ -522,7 +546,7 @@ typedef struct MPIDI_NM_funcs {
     MPIDI_NM_am_send_hdr_reply_t am_send_hdr_reply;
     MPIDI_NM_am_isend_reply_t am_isend_reply;
     MPIDI_NM_am_hdr_max_sz_t am_hdr_max_sz;
-    MPIDI_NM_am_recv_t am_recv;
+    MPIDI_NM_am_recv_t am_recv; 
 } MPIDI_NM_funcs_t;
 
 typedef struct MPIDI_NM_native_funcs {
@@ -671,6 +695,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_init_hook(int rank, int size, int appn
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_finalize_hook(void) MPL_STATIC_INLINE_SUFFIX;
 MPL_STATIC_INLINE_PREFIX MPIDI_vni_resource_t MPIDI_NM_vni_get_resource_info(int vni)
     MPL_STATIC_INLINE_SUFFIX;
+int MPIDI_NM_vni_alloc(MPIDI_vni_resource_t resources, MPIDI_vni_property_t properties, int *vni);
+int MPIDI_NM_vni_free(int vni);
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_progress(int vni, int blocking) MPL_STATIC_INLINE_SUFFIX;
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_comm_connect(const char *port_name, MPIR_Info * info,
                                                        int root, int timeout,
