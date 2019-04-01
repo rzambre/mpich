@@ -96,7 +96,7 @@ typedef int (*MPIDI_NM_mpi_bsend_init_t) (const void *buf, int count, MPI_Dataty
                                           MPIDI_av_entry_t * addr, MPIR_Request ** request);
 typedef int (*MPIDI_NM_mpi_isend_t) (const void *buf, MPI_Aint count, MPI_Datatype datatype,
                                      int rank, int tag, MPIR_Comm * comm, int context_offset,
-                                     MPIDI_av_entry_t * addr, MPIR_Request ** request);
+                                     MPIDI_av_entry_t * addr, MPIR_Request ** request, int vci);
 typedef int (*MPIDI_NM_mpi_issend_t) (const void *buf, MPI_Aint count, MPI_Datatype datatype,
                                       int rank, int tag, MPIR_Comm * comm, int context_offset,
                                       MPIDI_av_entry_t * addr, MPIR_Request ** request);
@@ -791,7 +791,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(const void *buf, MPI_Aint count,
                                                 MPI_Datatype datatype, int rank, int tag,
                                                 MPIR_Comm * comm, int context_offset,
                                                 MPIDI_av_entry_t * addr,
-                                                MPIR_Request ** request) MPL_STATIC_INLINE_SUFFIX;
+                                                MPIR_Request ** request,
+                                                int vci) MPL_STATIC_INLINE_SUFFIX;
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_issend(const void *buf, MPI_Aint count,
                                                  MPI_Datatype datatype, int rank, int tag,
                                                  MPIR_Comm * comm, int context_offset,
