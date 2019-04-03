@@ -40,7 +40,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_init_hook(int rank,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_INIT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_INIT);
 
-    *n_vnis_provided = 1;
+    *n_vnis_provided = 16;
     MPIDI_UCX_VNI_POOL(total_vnis) = *n_vnis_provided;
 
     ucx_status = ucp_config_read(NULL, NULL, &config);
