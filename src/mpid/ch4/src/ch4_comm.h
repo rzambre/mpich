@@ -239,6 +239,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Comm_create_hook(MPIR_Comm * comm)
         }
 
         MPIDI_COMM_VCI(comm, vci) = vci;
+        /* Print some debug info */
+        printf("VCI %d has VNI %d\n", vci, MPIDI_VCI(vci).vni);
     }
 
     mpi_errno = MPIDI_NM_mpi_comm_create_hook(comm);
