@@ -39,6 +39,13 @@ int MPIDI_vci_pool_create_and_init(int num_vnis)
             MPIR_ERR_POP(mpi_errno);
         }
 
+        /* A SEND request covers all possible use-cases */
+        MPIDI_VCI(i).lw_req = MPIR_Request_create(MPIR_REQUEST_KIND__SEND);
+        MPIDI_REQUEST(MPIDI_VCI(i).lw_req, vci) = i;
+        MPIR_ERR_CHKANDSTMT(MPIDI_VCI(i).lw_req == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail,
+                "**nomemreq");
+         MPIR_cc_set(&MPIDI_VCI(i).lw_req->cc, 0);
+        
         MPIDI_VCI(i).ref_count = 0;
 
         MPIDI_VCI(i).vni = MPIDI_NM_VNI_INVALID;
