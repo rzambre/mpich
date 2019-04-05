@@ -151,12 +151,12 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(MPIDI_hook_flags_t hook_flags,
             break;
         case MPIDI_PROGRESS_TYPE__VCI:
             /* progress the VCI */
-            if (hook_flags & MPIDI_PROGRESS_HOOKS) {
+            /*if (hook_flags & MPIDI_PROGRESS_HOOKS) {
                 mpi_errno = MPIDI_Progress_test_hooks();
                 if (mpi_errno != MPI_SUCCESS) {
                     MPIR_ERR_POP(mpi_errno);
                 }
-            }
+            }*/
             mpi_errno = MPIDI_Progress_test_vci(hook_flags, vci);
             if (mpi_errno != MPI_SUCCESS) {
                 MPIR_ERR_POP(mpi_errno);
