@@ -12,9 +12,9 @@
 
 /** Slow-path function declarations **/
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-int MPIDI_vci_pool_create_and_init(int num_vsis, int num_vnis);
+int MPIDI_vci_pool_alloc(int num_vsis, int num_vnis);
 #else
-int MPIDI_vci_pool_create_and_init(int num_vnis);
+int MPIDI_vci_pool_alloc(int num_vnis);
 #endif
 int MPIDI_vci_pool_destroy(void);
 void MPIDI_vci_pool_get_free_vci(int *free_vci);

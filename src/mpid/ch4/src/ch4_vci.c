@@ -8,13 +8,13 @@
 #include "ch4_vci.h"
 
 #undef FUNCNAME
-#define FUNCNAME MPIDI_vci_pool_create_and_init
+#define FUNCNAME MPIDI_vci_pool_alloc
 #undef FCNAME
 #define FCNAME MPL_QUOTE(FUNCNAME)
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-int MPIDI_vci_pool_create_and_init(int num_vsis, int num_vnis)
+int MPIDI_vci_pool_alloc(int num_vsis, int num_vnis)
 #else
-int MPIDI_vci_pool_create_and_init(int num_vnis)
+int MPIDI_vci_pool_alloc(int num_vnis)
 #endif
 {
     int mpi_errno = MPI_SUCCESS;

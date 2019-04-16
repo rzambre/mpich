@@ -438,9 +438,9 @@ MPL_STATIC_INLINE_PREFIX int MPID_Init(int *argc,
             MPIR_ERR_POPFATAL(mpi_errno);
         }
 #ifndef MPIDI_CH4_DIRECT_NETMOD
-        mpi_errno = MPIDI_vci_pool_create_and_init(n_vsis_provided, n_vnis_provided);
+        mpi_errno = MPIDI_vci_pool_alloc(n_vsis_provided, n_vnis_provided);
 #else
-        mpi_errno = MPIDI_vci_pool_create_and_init(n_vnis_provided);
+        mpi_errno = MPIDI_vci_pool_alloc(n_vnis_provided);
 #endif
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POPFATAL(mpi_errno);
