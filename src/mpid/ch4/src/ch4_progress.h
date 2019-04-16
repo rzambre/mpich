@@ -33,17 +33,13 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(int flags)
     if (flags & MPIDI_PROGRESS_HOOKS) {
         for (i = 0; i < MPIDI_global.registered_progress_hooks; i++) {
             progress_func_ptr_t func_ptr = NULL;
-            MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
             if (MPIDI_global.progress_hooks[i].active == TRUE) {
-                MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
                 func_ptr = MPIDI_global.progress_hooks[i].func_ptr;
                 MPIR_Assert(func_ptr != NULL);
                 mpi_errno = func_ptr(&made_progress);
                 if (mpi_errno)
                     MPIR_ERR_POP(mpi_errno);
 
-            } else {
-                MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
             }
         }
     }
@@ -201,13 +197,15 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deregister(int id)
     return mpi_errno;
 }
 
+/* This function is thread-unsafe. User must ensure protection
+ * for concurrent calls to MPID_Progress_activate and
+ * MPID_Progress_deactivate */
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_activate(int id)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_ACTIVATE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_ACTIVATE);
 
-    MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_Assert(id >= 0);
     MPIR_Assert(id < MAX_PROGRESS_HOOKS);
     /* Asserting that active == FALSE shouldn't be done outside the global lock
@@ -220,18 +218,19 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_activate(int id)
         MPIDI_global.progress_hooks[id].active = TRUE;
     }
 
-    MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_ACTIVATE);
     return mpi_errno;
 }
 
+/* This function is thread-unsafe. User must ensure protection
+ * for concurrent calls to MPID_Progress_activate and
+ * MPID_Progress_deactivate */
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_DEACTIVATE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_DEACTIVATE);
 
-    MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_Assert(id >= 0);
     MPIR_Assert(id < MAX_PROGRESS_HOOKS);
     /* We shouldn't assert that active == TRUE here for the same reasons
@@ -242,7 +241,6 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
         MPIDI_global.progress_hooks[id].active = FALSE;
     }
 
-    MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_PROGRESS_HOOK_MUTEX);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_DEACTIVATE);
     return mpi_errno;
 }

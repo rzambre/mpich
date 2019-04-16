@@ -322,7 +322,6 @@ extern MPL_dbg_class MPIDI_CH4_DBG_COMM;
 extern MPL_dbg_class MPIDI_CH4_DBG_MEMORY;
 #endif
 #define MPIDIU_THREAD_PROGRESS_MUTEX  MPIDI_global.m[0]
-#define MPIDIU_THREAD_PROGRESS_HOOK_MUTEX  MPIDI_global.m[1]
-#define MPIDIU_THREAD_UTIL_MUTEX  MPIDI_global.m[2]
+#define MPIDIU_THREAD_UTIL_MUTEX  MPIDI_global.m[1]
 
 #endif /* CH4_TYPES_H_INCLUDED */
