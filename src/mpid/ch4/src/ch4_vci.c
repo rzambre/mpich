@@ -44,8 +44,20 @@ int MPIDI_vci_pool_alloc(int num_vnis)
         MPIDI_REQUEST(MPIDI_VCI(i).lw_req, vci) = i;
         MPIR_ERR_CHKANDSTMT(MPIDI_VCI(i).lw_req == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail,
                 "**nomemreq");
-         MPIR_cc_set(&MPIDI_VCI(i).lw_req->cc, 0);
-        
+        MPIR_cc_set(&MPIDI_VCI(i).lw_req->cc, 0);
+
+        /* Initialize the request pool */
+        memset(MPIDI_VCI(i).request_direct, 0, sizeof(MPIDI_VCI(i).request_direct));
+
+        MPIDI_VCI(i).request_pool.avail = 0;
+        MPIDI_VCI(i).request_pool.initialized = 0;
+        MPIDI_VCI(i).request_pool.indirect = 0;
+        MPIDI_VCI(i).request_pool.indirect_size = 0;
+        MPIDI_VCI(i).request_pool.kind = MPIR_REQUEST;
+        MPIDI_VCI(i).request_pool.size = sizeof(MPIR_Request);
+        MPIDI_VCI(i).request_pool.direct = MPIDI_VCI(i).request_direct;
+        MPIDI_VCI(i).request_pool.direct_size = MPIR_REQUEST_PREALLOC;
+ 
         MPIDI_VCI(i).ref_count = 0;
 
         MPIDI_VCI(i).vni = MPIDI_NM_VNI_INVALID;

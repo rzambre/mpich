@@ -29,7 +29,6 @@
 #include "uthash.h"
 #include "ch4_coll_params.h"
 #include "ch4i_workq_types.h"
-#include "ch4_vci_types.h"
 
 #ifdef MPIDI_CH4_USE_MT_DIRECT
 #define MPIDI_CH4_MT_MODEL MPIDI_CH4_MT_DIRECT
@@ -479,6 +478,16 @@ typedef struct {
     } irreg;
 } MPIDI_rank_map_t;
 
+/* VCI hash */
+typedef struct MPIDI_vci_hash {
+    union {
+        struct {
+            int vci;
+        } single;
+        /* TODO: struct multi */
+    } u;
+} MPIDI_vci_hash_t;
+
 typedef struct MPIDI_Devcomm_t {
     struct {
         /* The first fields are used by the AM(MPIDIG) apis */
@@ -512,6 +521,42 @@ typedef struct {
 #define MPID_DEV_WIN_DECL        MPIDI_Devwin_t  dev;
 #define MPID_DEV_COMM_DECL       MPIDI_Devcomm_t dev;
 #define MPID_DEV_OP_DECL         MPIDI_Devop_t   dev;
+
+/* VCI resources */
+typedef enum {
+    MPIDI_VCI_RESOURCE__TX = 0x1,       /* Can send */
+    MPIDI_VCI_RESOURCE__RX = 0x2,       /* Can receive */
+    MPIDI_VCI_RESOURCE__NM = 0x4,       /* Can perform netmod operations */
+    MPIDI_VCI_RESOURCE__SHM = 0x8,      /* Can perform shmmod operations */
+} MPIDI_vci_resource_t;
+
+#define MPIDI_VCI_RESOURCE__GENERIC MPIDI_VCI_RESOURCE__TX | \
+                                    MPIDI_VCI_RESOURCE__RX | \
+                                    MPIDI_VCI_RESOURCE__NM | \
+                                    MPIDI_VCI_RESOURCE__SHM
+
+/* VCI properties */
+typedef enum {
+    MPIDI_VCI_PROPERTY__TAGGED_ORDERED = 0x1,
+    MPIDI_VCI_PROPERTY__TAGGED_UNORDERED = 0x2,
+    MPIDI_VCI_PROPERTY__RAR = 0x4,
+    MPIDI_VCI_PROPERTY__WAR = 0x8,
+    MPIDI_VCI_PROPERTY__RAW = 0x10,
+    MPIDI_VCI_PROPERTY__WAW = 0x20,
+} MPIDI_vci_property_t;
+
+#define MPIDI_VCI_PROPERTY__GENERIC MPIDI_VCI_PROPERTY__TAGGED_ORDERED | \
+                                    MPIDI_VCI_PROPERTY__TAGGED_UNORDERED | \
+                                    MPIDI_VCI_PROPERTY__RAR | \
+                                    MPIDI_VCI_PROPERTY__WAR | \
+                                    MPIDI_VCI_PROPERTY__RAW | \
+                                    MPIDI_VCI_PROPERTY__WAW
+
+/* VCI types */
+typedef enum {
+    MPIDI_VCI_TYPE__SHARED = 0x1,       /* VCI can be used by multiple objects */
+    MPIDI_VCI_TYPE__EXCLUSIVE = 0x2,    /* VCI will be used by only one object */
+} MPIDI_vci_type_t;
 
 typedef struct MPIDI_av_entry {
     union {

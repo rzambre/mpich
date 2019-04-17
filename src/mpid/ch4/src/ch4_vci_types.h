@@ -8,6 +8,7 @@
 #ifndef CH4_VCI_TYPES_H_INCLUDED
 #define CH4_VCI_TYPES_H_INCLUDED
 
+#include "mpir_request.h"
 #include "mpid_thread.h"
 
 #define MPIDI_VCI_ROOT 0
@@ -16,46 +17,14 @@
 #define MPIDI_VCI_POOL(field) MPIDI_global.vci_pool.field
 #define MPIDI_VCI(i) MPIDI_VCI_POOL(vci)[i]
 
-/* VCI resources */
-typedef enum {
-    MPIDI_VCI_RESOURCE__TX = 0x1,       /* Can send */
-    MPIDI_VCI_RESOURCE__RX = 0x2,       /* Can receive */
-    MPIDI_VCI_RESOURCE__NM = 0x4,       /* Can perform netmod operations */
-    MPIDI_VCI_RESOURCE__SHM = 0x8,      /* Can perform shmmod operations */
-} MPIDI_vci_resource_t;
 
-#define MPIDI_VCI_RESOURCE__GENERIC MPIDI_VCI_RESOURCE__TX | \
-                                    MPIDI_VCI_RESOURCE__RX | \
-                                    MPIDI_VCI_RESOURCE__NM | \
-                                    MPIDI_VCI_RESOURCE__SHM
-
-/* VCI properties */
-typedef enum {
-    MPIDI_VCI_PROPERTY__TAGGED_ORDERED = 0x1,
-    MPIDI_VCI_PROPERTY__TAGGED_UNORDERED = 0x2,
-    MPIDI_VCI_PROPERTY__RAR = 0x4,
-    MPIDI_VCI_PROPERTY__WAR = 0x8,
-    MPIDI_VCI_PROPERTY__RAW = 0x10,
-    MPIDI_VCI_PROPERTY__WAW = 0x20,
-} MPIDI_vci_property_t;
-
-#define MPIDI_VCI_PROPERTY__GENERIC MPIDI_VCI_PROPERTY__TAGGED_ORDERED | \
-                                    MPIDI_VCI_PROPERTY__TAGGED_UNORDERED | \
-                                    MPIDI_VCI_PROPERTY__RAR | \
-                                    MPIDI_VCI_PROPERTY__WAR | \
-                                    MPIDI_VCI_PROPERTY__RAW | \
-                                    MPIDI_VCI_PROPERTY__WAW
-
-/* VCI types */
-typedef enum {
-    MPIDI_VCI_TYPE__SHARED = 0x1,       /* VCI can be used by multiple objects */
-    MPIDI_VCI_TYPE__EXCLUSIVE = 0x2,    /* VCI will be used by only one object */
-} MPIDI_vci_type_t;
 
 /* VCI */
 typedef struct MPIDI_vci {
     char padding[64];
     MPID_Thread_mutex_t lock;   /* lock to protect the objects in this VCI */
+    struct MPIR_Request request_direct[MPIR_REQUEST_PREALLOC]; /* a request pool for this VCI */
+    MPIR_Object_alloc_t request_pool; /* a request pool for this VCI */
     MPIR_Request *lw_req;       /* pre-allocated completed request for this VCI */
     int ref_count;              /* number of objects referring to this VCI */
     int is_free;                /* flag to check if this VCI is free or not */

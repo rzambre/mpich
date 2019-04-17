@@ -27,6 +27,44 @@ MPL_STATIC_INLINE_PREFIX void MPID_Request_create_hook(MPIR_Request * req)
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_REQUEST_CREATE_HOOK);
 }
 
+MPL_STATIC_INLINE_PREFIX MPIR_Request* MPID_Request_create(int kind, int vci)
+{
+    MPIR_Request *req;
+    /* need to implement the whole thing since the MPIR_Request_create
+     * does not take VCI as an argument and VCI is only a CH4 concept.
+     * Neither can we call the MPI_Request_create from inside MPID_Request_create
+     * since it works on the global request pool. */
+
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    req = MPIR_Handle_obj_alloc_unsafe(&MPIDI_VCI(vci).request_pool);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+
+    if (req != NULL) {
+        MPIR_Request_alloc_success(req, kind);
+    } else {
+        MPIR_Request_alloc_fail();
+    }
+
+    return req;
+}
+
+MPL_STATIC_INLINE_PREFIX void MPID_Request_free(MPIR_Request* req)
+{
+    int inuse;
+    int vci;
+
+    MPIR_Request_release(req, &inuse);
+    vci = MPIDI_REQUEST(req, vci);
+    
+    if (inuse == 0) {
+        MPIR_Request_free_not_in_use(req);
+        
+        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+        MPIR_Handle_obj_free_unsafe(&MPIDI_VCI(vci).request_pool, req);
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+    }
+}
+
 MPL_STATIC_INLINE_PREFIX void MPID_Request_free_hook(MPIR_Request * req)
 {
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_REQUEST_FREE_HOOK);

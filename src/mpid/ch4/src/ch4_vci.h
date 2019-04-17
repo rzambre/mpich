@@ -8,7 +8,7 @@
 #ifndef CH4_VCI_H_INCLUDED
 #define CH4_VCI_H_INCLUDED
 
-#include "ch4_vci_types.h"
+#include "ch4_impl.h"
 
 /** Slow-path function declarations **/
 #ifndef MPIDI_CH4_DIRECT_NETMOD
