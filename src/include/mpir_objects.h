@@ -249,7 +249,6 @@ extern MPL_dbg_class MPIR_DBG_HANDLE;
    --enable-g=log is selected.  HANDLE_CHECK_REFCOUNT is
    defined above, and adds an additional sanity check for the refcounts
 */
-#if MPICH_THREAD_REFCOUNT == MPICH_REFCOUNT__NONE
 
 typedef int Handle_ref_count;
 
@@ -276,60 +275,6 @@ typedef int Handle_ref_count;
         HANDLE_CHECK_REFCOUNT(objptr_,(objptr_)->ref_count,"decr");     \
     } while (0)
 
-#elif MPICH_THREAD_REFCOUNT == MPICH_REFCOUNT__LOCKFREE
-
-#include "opa_primitives.h"
-typedef OPA_int_t Handle_ref_count;
-
-#define MPIR_Object_set_ref(objptr_,val)                        \
-    do {                                                        \
-        OPA_store_int(&(objptr_)->ref_count, val);              \
-        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, val, "set");        \
-    } while (0)
-
-/* must be used with care, since there is no synchronization for this read */
-#define MPIR_Object_get_ref(objptr_) \
-    (OPA_load_int(&(objptr_)->ref_count))
-
-#ifdef MPICH_DEBUG_HANDLES
-/*
-  For non-debug builds, we use non-fetch atomics here, because they may be
-  slightly faster than fetch versions, and we don't care about exact value
-  of the refcount (other than whether it hit zero.)
-  For debug builds (when MPICH_DEBUG_HANDLES is set), we need fetch atomics
-  in order to know the correct refcount value when multiple threads present.
-*/
-
-/* MPICH_THREAD_REFCOUNT == MPICH_REFCOUNT__LOCKFREE && MPICH_DEBUG_HANDLES */
-#define MPIR_Object_add_ref_always(objptr_)                             \
-    do {                                                                \
-        int new_ref_;                                                   \
-        new_ref_ = OPA_fetch_and_incr_int(&((objptr_)->ref_count)) + 1; \
-        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, new_ref_, "incr");          \
-        HANDLE_CHECK_REFCOUNT(objptr_,new_ref_,"incr");                 \
-    } while (0)
-#define MPIR_Object_release_ref_always(objptr_,inuse_ptr)               \
-    do {                                                                \
-        int new_ref_ = OPA_fetch_and_decr_int(&((objptr_)->ref_count)) - 1; \
-        *(inuse_ptr) = new_ref_;                                        \
-        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, new_ref_, "decr");          \
-        HANDLE_CHECK_REFCOUNT(objptr_,new_ref_,"decr");                 \
-    } while (0)
-#else /* MPICH_DEBUG_HANDLES */
-/* MPICH_THREAD_REFCOUNT == MPICH_REFCOUNT__LOCKFREE && !MPICH_DEBUG_HANDLES */
-#define MPIR_Object_add_ref_always(objptr_)     \
-    do {                                        \
-        OPA_incr_int(&((objptr_)->ref_count));  \
-    } while (0)
-#define MPIR_Object_release_ref_always(objptr_,inuse_ptr)               \
-    do {                                                                \
-        int got_zero_ = OPA_decr_and_test_int(&((objptr_)->ref_count)); \
-        *(inuse_ptr) = got_zero_ ? 0 : 1;                               \
-    } while (0)
-#endif /* MPICH_DEBUG_HANDLES */
-#else
-#error invalid value for MPICH_THREAD_REFCOUNT
-#endif
 
 /* TODO someday we should probably always suppress predefined object refcounting,
  * but we don't have total confidence in it yet.  So until we gain sufficient
