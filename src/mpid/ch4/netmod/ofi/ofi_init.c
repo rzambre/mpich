@@ -1615,7 +1615,8 @@ static int init_hints(struct fi_info *hints)
     /* op_flags:     persistent flag settings for an endpoint                   */
     /* endpoint type:  see FI_EP_RDM                                            */
     /* Filters applied (for this netmod, we need providers that can support):   */
-    /* THREAD_DOMAIN:  Progress serialization is handled by netmod (locking)    */
+    /* THREAD_DOMAIN: Global lock handles serialization to all objects          */
+    /* THREAD_COMPLETION: VNI lock handles Post and Progress serialization      */
     /* PROGRESS_AUTO:  request providers that make progress without requiring   */
     /*                 the ADI to dedicate a thread to advance the state        */
     /* FI_DELIVERY_COMPLETE:  RMA operations are visible in remote memory       */
@@ -1623,7 +1624,11 @@ static int init_hints(struct fi_info *hints)
     /* FI_EP_RDM:  Reliable datagram                                            */
     /* ------------------------------------------------------------------------ */
     hints->addr_format = FI_FORMAT_UNSPEC;
+#if defined(MPICH_IS_THREADED) && (MPICH_THREAD_GRANULARITY != MPICH_THREAD_GRANULARITY__GLOBAL)
+    hints->domain_attr->threading = FI_THREAD_COMPLETION;
+#else
     hints->domain_attr->threading = FI_THREAD_DOMAIN;
+#endif
     if (MPIDI_OFI_ENABLE_DATA_AUTO_PROGRESS) {
         hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
     } else {
