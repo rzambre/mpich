@@ -55,7 +55,7 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
                     node++;
                     continue;
                 }
-                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest = mapped_table[curr];
+                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[0 /*WRONG*/] = mapped_table[curr];
 #if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
                 MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
 #else
