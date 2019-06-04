@@ -1642,7 +1642,7 @@ static int init_hints(struct fi_info *hints)
     /* ------------------------------------------------------------------------ */
     hints->addr_format = FI_FORMAT_UNSPEC;
 #if defined(MPICH_IS_THREADED) && (MPICH_THREAD_GRANULARITY != MPICH_THREAD_GRANULARITY__GLOBAL)
-    hints->domain_attr->threading = FI_THREAD_COMPLETION;
+    hints->domain_attr->threading = FI_THREAD_DOMAIN;
 #else
     hints->domain_attr->threading = FI_THREAD_DOMAIN;
 #endif
