@@ -243,6 +243,9 @@ typedef struct {
 
 typedef struct {
     int is_free;
+    struct fid_domain *domain;
+    struct fid_av *av;
+    struct fid_ep *sep;
     MPIDI_OFI_context_t ctx;
 } MPIDI_OFI_vni_t;
 
