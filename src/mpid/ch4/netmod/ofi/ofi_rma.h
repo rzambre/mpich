@@ -533,7 +533,7 @@ static inline int MPIDI_NM_mpi_put(const void *origin_addr,
                                    int target_rank,
                                    MPI_Aint target_disp,
                                    int target_count, MPI_Datatype target_datatype, MPIR_Win * win,
-                                   MPIDI_av_entry_t * av)
+                                   MPIDI_av_entry_t * av, int vci)
 {
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_PUT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_PUT);
@@ -549,7 +549,7 @@ static inline int MPIDI_NM_mpi_put(const void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, NULL, 0);
+                                 target_disp, target_count, target_datatype, win, av, NULL, vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_PUT);
@@ -706,7 +706,7 @@ static inline int MPIDI_NM_mpi_get(void *origin_addr,
                                    int target_rank,
                                    MPI_Aint target_disp,
                                    int target_count, MPI_Datatype target_datatype, MPIR_Win * win,
-                                   MPIDI_av_entry_t * av)
+                                   MPIDI_av_entry_t * av, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -723,7 +723,7 @@ static inline int MPIDI_NM_mpi_get(void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, NULL, 0);
+                                 target_disp, target_count, target_datatype, win, av, NULL, vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_GET);
