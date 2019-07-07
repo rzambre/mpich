@@ -123,7 +123,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_get_mpi_acc_op_index(int op)
     } while (_ret == -FI_EAGAIN);                           \
     } while (0)
 
-#define MPIDI_OFI_CALL_RETRY2(FUNC1,FUNC2,STR)                       \
+#define MPIDI_OFI_CALL_RETRY2(FUNC1,FUNC2,STR,VCI_IDX)                       \
     do {                                                    \
     ssize_t _ret;                                           \
     FUNC1;                                                  \
@@ -139,9 +139,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_get_mpi_acc_op_index(int op)
                               __LINE__,                     \
                               __func__,                       \
                               fi_strerror(-_ret));          \
-        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);         \
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(VCI_IDX).lock);         \
         mpi_errno = MPIDI_OFI_retry_progress();                      \
-        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);        \
+        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(VCI_IDX).lock);        \
         MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX);\
         if (mpi_errno != MPI_SUCCESS)                                \
             MPIR_ERR_POP(mpi_errno);                                 \

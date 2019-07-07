@@ -434,7 +434,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
                                                                                         target_rank)
                                               + target_true_lb, MPIDI_OFI_winfo_mr_key(win,
                                                                                        target_rank)),
-                              rdma_inject_write);
+                              rdma_inject_write, vci);
         goto null_op_exit;
     } else if (origin_contig && target_contig) {
         MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, &flags);
@@ -453,7 +453,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         riov.len = target_bytes;
         riov.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_writemsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write);
+                              fi_writemsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write, vci);
         goto fn_exit;
     }
 
@@ -509,7 +509,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_writemsg(ep, &msg, flags), rdma_write);
+                              fi_writemsg(ep, &msg, flags), rdma_write, vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -629,7 +629,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
         riov.len = target_bytes;
         riov.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_readmsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write);
+                              fi_readmsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write, vci);
         goto fn_exit;
     }
 
@@ -683,7 +683,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_readmsg(ep, &msg, flags), rdma_write);
+                              fi_readmsg(ep, &msg, flags), rdma_write, vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -853,7 +853,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&resultv);
     MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
                           fi_compare_atomicmsg(MPIDI_OFI_WIN(win).ep, &msg,
-                                               &comparev, NULL, 1, &resultv, NULL, 1, 0), atomicto);
+                                               &comparev, NULL, 1, &resultv, NULL, 1, 0), atomicto, MPIDI_VCI_ROOT);
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_COMPARE_AND_SWAP);
     return mpi_errno;
@@ -981,7 +981,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto);
+                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto, MPIDI_VCI_ROOT);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -1155,7 +1155,7 @@ static inline int MPIDI_OFI_do_get_accumulate(const void *origin_addr,
         MPIDI_OFI_ASSERT_IOVEC_ALIGN(resultv);
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
                               fi_fetch_atomicmsg(ep, &msg, resultv,
-                                                 NULL, rout, flags), rdma_readfrom);
+                                                 NULL, rout, flags), rdma_readfrom, MPIDI_VCI_ROOT);
     }
 
     if (op != MPI_NO_OP)
@@ -1373,7 +1373,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&resultv);
     MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
                           fi_fetch_atomicmsg(MPIDI_OFI_WIN(win).ep, &msg, &resultv,
-                                             NULL, 1, 0), rdma_readfrom);
+                                             NULL, 1, 0), rdma_readfrom, MPIDI_VCI_ROOT);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
