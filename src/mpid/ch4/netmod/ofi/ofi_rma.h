@@ -878,7 +878,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
                                           int target_count,
                                           MPI_Datatype target_datatype,
                                           MPI_Op op, MPIR_Win * win,
-                                          MPIDI_av_entry_t * addr, MPIR_Request ** sigreq)
+                                          MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int vci)
 {
     int rc, mpi_errno = MPI_SUCCESS;
     uint64_t flags;
@@ -892,6 +892,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
     struct fi_ioc *originv;
     struct fi_rma_ioc *targetv;
     unsigned i;
+    int dest_vni;
     MPIDI_OFI_seg_state_t p;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_ACCUMULATE);
@@ -942,8 +943,10 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
                              target_count, origin_bytes, target_bytes, max_size, origin_datatype,
                              target_datatype);
 
+    /* For now, VNI i communicates with only VNI i of every other rank */
+    dest_vni = MPIDI_VCI(vci).vni;;
     msg.desc = NULL;
-    msg.addr = MPIDI_OFI_av_to_phys(addr);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni);
     msg.context = NULL;
     msg.data = 0;
     msg.datatype = fi_dt;
@@ -981,7 +984,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto, MPIDI_VCI_ROOT);
+                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto, vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -992,6 +995,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
   fn_fail:
     goto fn_exit;
   am_fallback:
+    printf("Active message accumulate not supported\n");
     if (MPIDIG_WIN(win, info_args).accumulate_ordering &
         (MPIDIG_ACCU_ORDER_WAW | MPIDIG_ACCU_ORDER_WAR)) {
         /* Wait for OFI acc to complete.
@@ -1232,7 +1236,7 @@ static inline int MPIDI_NM_mpi_raccumulate(const void *origin_addr,
                                         origin_datatype,
                                         target_rank,
                                         target_disp,
-                                        target_count, target_datatype, op, win, av, request);
+                                        target_count, target_datatype, op, win, av, request, MPIDI_VCI_ROOT);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RACCUMULATE);
@@ -1484,7 +1488,7 @@ static inline int MPIDI_NM_mpi_accumulate(const void *origin_addr,
                                           MPI_Aint target_disp,
                                           int target_count,
                                           MPI_Datatype target_datatype, MPI_Op op, MPIR_Win * win,
-                                          MPIDI_av_entry_t * av)
+                                          MPIDI_av_entry_t * av, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ACCUMULATE);
@@ -1500,6 +1504,7 @@ static inline int MPIDI_NM_mpi_accumulate(const void *origin_addr,
            !MPIDIG_WIN(win, info_args).disable_shm_accumulate ||
 #endif
            !MPIDI_OFI_ENABLE_RMA || !MPIDI_OFI_ENABLE_ATOMICS) {
+        printf("Active message accumulate not supported\n");
         mpi_errno = MPIDIG_mpi_accumulate(origin_addr, origin_count, origin_datatype, target_rank,
                                           target_disp, target_count, target_datatype, op, win);
         goto fn_exit;
@@ -1510,7 +1515,7 @@ static inline int MPIDI_NM_mpi_accumulate(const void *origin_addr,
                                         origin_datatype,
                                         target_rank,
                                         target_disp, target_count, target_datatype, op, win, av,
-                                        NULL);
+                                        NULL, vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ACCUMULATE);

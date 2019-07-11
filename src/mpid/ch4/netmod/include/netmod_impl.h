@@ -704,7 +704,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_accumulate(const void *origin_addr, in
                                                      MPI_Datatype origin_datatype, int target_rank,
                                                      MPI_Aint target_disp, int target_count,
                                                      MPI_Datatype target_datatype, MPI_Op op,
-                                                     MPIR_Win * win, MPIDI_av_entry_t * addr)
+                                                     MPIR_Win * win, MPIDI_av_entry_t * addr, int vci)
 {
     int ret;
 
@@ -713,7 +713,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_accumulate(const void *origin_addr, in
 
     ret = MPIDI_NM_native_func->mpi_accumulate(origin_addr, origin_count, origin_datatype,
                                                target_rank, target_disp, target_count,
-                                               target_datatype, op, win, addr);
+                                               target_datatype, op, win, addr, vci);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ACCUMULATE);
     return ret;

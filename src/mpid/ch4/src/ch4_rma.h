@@ -104,7 +104,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_accumulate_unsafe(const void *origin_addr,
                                                      MPI_Aint target_disp,
                                                      int target_count,
                                                      MPI_Datatype target_datatype, MPI_Op op,
-                                                     MPIR_Win * win)
+                                                     MPIR_Win * win, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIDI_av_entry_t *av = MPIDIU_comm_rank_to_av(win->comm_ptr, target_rank);
@@ -114,7 +114,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_accumulate_unsafe(const void *origin_addr,
 #ifdef MPIDI_CH4_DIRECT_NETMOD
     mpi_errno = MPIDI_NM_mpi_accumulate(origin_addr, origin_count, origin_datatype,
                                         target_rank, target_disp, target_count,
-                                        target_datatype, op, win, av);
+                                        target_datatype, op, win, av, vci);
 #else
     int r;
 
@@ -557,23 +557,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_accumulate_safe(const void *origin_addr,
                                                    MPI_Datatype target_datatype, MPI_Op op,
                                                    MPIR_Win * win)
 {
-    int mpi_errno = MPI_SUCCESS, cs_acq = 0;
+    int vci, mpi_errno = MPI_SUCCESS, cs_acq = 0;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_ACCUMULATE_SAFE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_ACCUMULATE_SAFE);
 
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    vci = MPIDI_COMM_VCI(win->comm_ptr);
+    
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
     MPIDI_workq_vci_progress_unsafe();
 
     mpi_errno = MPIDI_accumulate_unsafe(origin_addr, origin_count, origin_datatype, target_rank,
-                                        target_disp, target_count, target_datatype, op, win);
+                                        target_disp, target_count, target_datatype, op, win, vci);
 
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
 
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 
   fn_exit:
-    MPID_THREAD_SAFE_END(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock, cs_acq);
+    MPID_THREAD_SAFE_END(VCI, MPIDI_VCI(vci).lock, cs_acq);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_ACCUMULATE_SAFE);
     return mpi_errno;
   fn_fail:
