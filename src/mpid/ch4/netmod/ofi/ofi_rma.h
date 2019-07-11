@@ -1288,7 +1288,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
                                             MPI_Datatype datatype,
                                             int target_rank,
                                             MPI_Aint target_disp, MPI_Op op, MPIR_Win * win,
-                                            MPIDI_av_entry_t * av)
+                                            MPIDI_av_entry_t * av, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     enum fi_op fi_op;
@@ -1300,6 +1300,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     struct fi_ioc resultv MPL_ATTR_ALIGNED(MPIDI_OFI_IOVEC_ALIGN);
     struct fi_rma_ioc targetv;
     struct fi_msg_atomic msg;
+    int dest_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
 
@@ -1313,6 +1314,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
            !MPIDIG_WIN(win, info_args).disable_shm_accumulate ||
 #endif
            !MPIDI_OFI_ENABLE_RMA || !MPIDI_OFI_ENABLE_ATOMICS) {
+        printf("Active message fetch and op not supported!\n");
         mpi_errno = MPIDIG_mpi_fetch_and_op(origin_addr, result_addr, datatype, target_rank,
                                             target_disp, op, win);
         goto fn_exit;
@@ -1359,11 +1361,13 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     targetv.count = 1;
     targetv.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
 
+    /* For now, VNI i communicates with only VNI i of every other rank */
+    dest_vni = MPIDI_VCI(vci).vni;
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&originv);
     msg.msg_iov = &originv;
     msg.desc = NULL;
     msg.iov_count = 1;
-    msg.addr = MPIDI_OFI_av_to_phys(av);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(av, dest_vni);
     msg.rma_iov = &targetv;
     msg.rma_iov_count = 1;
     msg.datatype = fi_dt;
@@ -1373,7 +1377,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&resultv);
     MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
                           fi_fetch_atomicmsg(MPIDI_OFI_WIN(win).ep, &msg, &resultv,
-                                             NULL, 1, 0), rdma_readfrom, MPIDI_VCI_ROOT);
+                                             NULL, 1, 0), rdma_readfrom, vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
@@ -1381,6 +1385,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
   fn_fail:
     goto fn_exit;
   am_fallback:
+    printf("Active message fetch and op not supported!\n");
     if (unlikely(op == MPI_NO_OP)) {
         if (MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_RAW) {
             /* Wait for OFI fetch_and_op to complete.
