@@ -857,7 +857,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
         (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAW | MPIDIG_ACCU_ORDER_WAR)) {
         /* Wait for OFI cas to complete.
          * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-        MPIDI_OFI_win_progress_fence(win);
+        MPIDI_OFI_win_progress_fence_unsafe(win);
     }
     return MPIDIG_mpi_compare_and_swap(origin_addr, compare_addr, result_addr, datatype,
                                        target_rank, target_disp, win);
@@ -989,7 +989,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
         (MPIDIG_ACCU_ORDER_WAW | MPIDIG_ACCU_ORDER_WAR)) {
         /* Wait for OFI acc to complete.
          * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-        MPIDI_OFI_win_progress_fence(win);
+        MPIDI_OFI_win_progress_fence_unsafe(win);
     }
     return MPIDIG_mpi_accumulate(origin_addr, origin_count, origin_datatype, target_rank,
                                  target_disp, target_count, target_datatype, op, win);
@@ -1166,12 +1166,12 @@ static inline int MPIDI_OFI_do_get_accumulate(const void *origin_addr,
         if (MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_RAW) {
             /* Wait for OFI acc to complete.
              * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-            MPIDI_OFI_win_progress_fence(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win);
         }
     } else {
         if (MPIDIG_WIN(win, info_args).accumulate_ordering &
             (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAR | MPIDIG_ACCU_ORDER_WAW)) {
-            MPIDI_OFI_win_progress_fence(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win);
         }
     }
     return MPIDIG_mpi_get_accumulate(origin_addr, origin_count, origin_datatype, result_addr,
@@ -1378,12 +1378,12 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
         if (MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_RAW) {
             /* Wait for OFI fetch_and_op to complete.
              * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-            MPIDI_OFI_win_progress_fence(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win);
         }
     } else {
         if (MPIDIG_WIN(win, info_args).accumulate_ordering &
             (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAR | MPIDIG_ACCU_ORDER_WAW)) {
-            MPIDI_OFI_win_progress_fence(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win);
         }
     }
     return MPIDIG_mpi_fetch_and_op(origin_addr, result_addr, datatype, target_rank, target_disp, op,
