@@ -596,12 +596,12 @@ static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
             MPIDIG_EPOCH_CHECK_TARGET_LOCK(target_ptr, mpi_errno, goto fn_fail);
     }
 
-    do {
+    /*do {
         MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
         MPIDIU_PROGRESS();
         MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
     } while (target_ptr && MPIR_cc_get(target_ptr->remote_cmpl_cnts) != 0);
-
+*/
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
     return mpi_errno;
