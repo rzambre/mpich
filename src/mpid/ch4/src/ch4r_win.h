@@ -463,7 +463,7 @@ static inline int MPIDIG_mpi_win_unlock(int rank, MPIR_Win * win)
 
 static inline int MPIDIG_mpi_win_fence(int massert, MPIR_Win * win)
 {
-    int mpi_errno = MPI_SUCCESS;
+    int mpi_errno = MPI_SUCCESS, vci;
     MPIR_Errflag_t errflag = MPIR_ERR_NONE;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_WIN_FENCE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_WIN_FENCE);
@@ -481,12 +481,13 @@ static inline int MPIDIG_mpi_win_fence(int massert, MPIR_Win * win)
         MPIR_ERR_POP(mpi_errno);
 #endif
 
+    vci = MPIDI_COMM_VCI(win->comm_ptr);
     /* Ensure completion of AM operations */
-    do {
-        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    /*do {
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
         MPIDIU_PROGRESS();
-        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
-    } while (MPIR_cc_get(MPIDIG_WIN(win, local_cmpl_cnts)) != 0);
+        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    } while (MPIR_cc_get(MPIDIG_WIN(win, local_cmpl_cnts)) != 0);*/
     MPIDIG_EPOCH_FENCE_EVENT(win, massert);
 
     /*
@@ -504,9 +505,9 @@ static inline int MPIDIG_mpi_win_fence(int massert, MPIR_Win * win)
     /* MPIR_Barrier's state is protected by ALLFUNC_MUTEX.
      * In VCI granularity, individual send/recv/wait operations will take
      * the VCI lock internally. */
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
     mpi_errno = MPIR_Barrier(win->comm_ptr, &errflag);
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_WIN_FENCE);
