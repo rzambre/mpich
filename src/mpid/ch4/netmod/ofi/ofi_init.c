@@ -817,11 +817,11 @@ int MPIDI_OFI_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
     /* ------------------------------------------------------------------------ */
 
     MPIDI_OFI_VNI_POOL(max_vnis) = 1;
-    if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
-        int max_by_prov = MPL_MIN(prov_use->domain_attr->tx_ctx_cnt,
-                                  prov_use->domain_attr->rx_ctx_cnt);
-        if (MPIR_CVAR_CH4_OFI_MAX_VNIS > 0)
+    int max_by_prov = MPL_MIN(prov_use->domain_attr->tx_ctx_cnt,
+                              prov_use->domain_attr->rx_ctx_cnt);
+    if (MPIR_CVAR_CH4_OFI_MAX_VNIS > 0)
             MPIDI_OFI_VNI_POOL(max_vnis) = MPL_MIN(MPIR_CVAR_CH4_OFI_MAX_VNIS, max_by_prov);
+    if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
         if (MPIDI_OFI_VNI_POOL(max_vnis) < 1) {
             MPIR_ERR_SETFATALANDJUMP4(mpi_errno,
                                       MPI_ERR_OTHER,
@@ -859,8 +859,13 @@ int MPIDI_OFI_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
         /* Exchange only the first VNI's address */
         /* Use the first VNI to exchange the addresses of other VNIs */
         MPIDI_OFI_global.addrnamelen = FI_NAME_MAX;
-        MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(0).sep, MPIDI_OFI_global.addrname,
+        if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
+            MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(0).sep, MPIDI_OFI_global.addrname,
                                   &MPIDI_OFI_global.addrnamelen), getname);
+        } else {
+            MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(0).ep, MPIDI_OFI_global.addrname,
+                                  &MPIDI_OFI_global.addrnamelen), getname);
+        }
         MPIR_Assert(MPIDI_OFI_global.addrnamelen <= FI_NAME_MAX);
 
         mpi_errno = MPIDU_bc_table_create(rank, size, MPIDI_global.node_map[0],
@@ -1055,6 +1060,14 @@ int MPIDI_OFI_mpi_finalize_hook(void)
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).rx), epclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).rma_cmpl_cntr), cntrclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).cq), cqclose);
+            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).av), avclose);
+            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).domain), domainclose);
+        }
+    } else {
+        for (i = 0; i < MPIDI_OFI_VNI_POOL(max_vnis); i++) {
+            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).ep), epclose); 
+            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).cq), cqclose);
+            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).rma_cmpl_cntr), cntrclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).av), avclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).domain), domainclose);
         }
@@ -1356,21 +1369,39 @@ static int create_endpoint(struct fi_info *prov_use, struct fid_domain *domain,
         MPIDI_OFI_CALL(fi_enable(MPIDI_OFI_CTX(index).tx), ep_enable);
         MPIDI_OFI_CALL(fi_enable(MPIDI_OFI_CTX(index).rx), ep_enable);
     } else {
+        struct fi_cq_attr cq_attr;
+        struct fi_cntr_attr cntr_attr;
+
         /* ---------------------------------------------------------- */
         /* Bind the CQs, counters,  and AV to the endpoint object     */
         /* ---------------------------------------------------------- */
-        /* "Normal Endpoint */
-        MPIDI_OFI_CALL(fi_endpoint(domain, prov_use, ep, NULL), ep);
-        MPIDI_OFI_CALL(fi_ep_bind(*ep, &p2p_cq->fid, FI_SEND | FI_RECV | FI_SELECTIVE_COMPLETION),
+        /* "Normal" Endpoint */
+        MPIDI_OFI_CALL(fi_endpoint(MPIDI_OFI_VNI(index).domain, prov_use, &MPIDI_OFI_VNI(index).ep, NULL), ep);
+        
+        memset(&cq_attr, 0, sizeof(cq_attr));
+        cq_attr.format = FI_CQ_FORMAT_TAGGED;
+        MPIDI_OFI_CALL(fi_cq_open(MPIDI_OFI_VNI(index).domain,
+                                  &cq_attr, &MPIDI_OFI_CTX(index).cq, NULL), opencq);
+
+        MPIDI_OFI_CALL(fi_ep_bind(MPIDI_OFI_VNI(index).ep, &MPIDI_OFI_CTX(index).cq->fid, FI_SEND | FI_RECV | FI_SELECTIVE_COMPLETION),
                        bind);
-        MPIDI_OFI_CALL(fi_ep_bind(*ep, &rma_ctr->fid, FI_READ | FI_WRITE), bind);
-        MPIDI_OFI_CALL(fi_ep_bind(*ep, &av->fid, 0), bind);
-        MPIDI_OFI_CALL(fi_enable(*ep), ep_enable);
+        
+        memset(&cntr_attr, 0, sizeof(cntr_attr));
+        cntr_attr.events = FI_CNTR_EVENTS_COMP;
+        cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+        MPIDI_OFI_CALL(fi_cntr_open(MPIDI_OFI_VNI(index).domain,        /* In:  Domain Object        */
+                                    &cntr_attr, /* In:  Configuration object */
+                                    &MPIDI_OFI_CTX(index).rma_cmpl_cntr,        /* Out: Counter Object       */
+                                    NULL), openct);     /* Context: counter events   */
+        
+        MPIDI_OFI_CALL(fi_ep_bind(MPIDI_OFI_VNI(index).ep, &MPIDI_OFI_CTX(index).rma_cmpl_cntr->fid, FI_READ | FI_WRITE), bind);
+        
+        MPIDI_OFI_CALL(fi_ep_bind(MPIDI_OFI_VNI(index).ep, &MPIDI_OFI_VNI(index).av->fid, 0), bind);
+        MPIDI_OFI_CALL(fi_enable(MPIDI_OFI_VNI(index).ep), ep_enable);
 
         /* Copy the normal ep into the first entry for scalable endpoints to
          * allow compile macros to work */
-        MPIDI_OFI_CTX(0).tx = MPIDI_OFI_CTX(0).rx = *ep;
-        MPIDI_OFI_CTX(0).cq = p2p_cq;
+        MPIDI_OFI_CTX(index).tx = MPIDI_OFI_CTX(index).rx = MPIDI_OFI_VNI(index).ep;
     }
 
   fn_exit:
@@ -1704,6 +1735,7 @@ static int init_hints(struct fi_info *hints)
 static struct fi_info *pick_provider(struct fi_info *hints, const char *provname,
                                      struct fi_info *prov_list)
 {
+    printf("Not entirely sure if multiple VNIs is supported without scalable endpoints\n");
     struct fi_info *prov, *prov_use = NULL;
 
     prov = prov_list;
