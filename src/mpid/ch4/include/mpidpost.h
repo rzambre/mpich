@@ -72,6 +72,19 @@ MPL_STATIC_INLINE_PREFIX MPIR_Request *MPID_Request_create_unsafe(int kind, int 
     return req;
 }
 
+MPL_STATIC_INLINE_PREFIX MPIR_Request *MPID_Request_create_safe(int kind, int vci)
+{
+    MPIR_Request *req;
+    
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+
+    req = MPID_Request_create_unsafe(kind, vci);
+
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+
+    return req;
+}
+
 MPL_STATIC_INLINE_PREFIX void MPID_Request_free_safe(MPIR_Request * req)
 {
     int vci;
@@ -112,7 +125,20 @@ MPL_STATIC_INLINE_PREFIX void MPID_Request_free_unsafe(MPIR_Request * req)
     }
 }
 
-MPL_STATIC_INLINE_PREFIX MPIR_Request *MPID_Request_create_complete(int kind, int vci)
+MPL_STATIC_INLINE_PREFIX MPIR_Request *MPID_Request_create_complete_safe(int kind, int vci)
+{
+    MPIR_Request *req;
+    
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    
+    req = MPID_Request_create_complete_unsafe(kind, vci);
+    
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+    
+    return req;
+}
+
+MPL_STATIC_INLINE_PREFIX MPIR_Request *MPID_Request_create_complete_unsafe(int kind, int vci)
 {
     MPIR_Request *req;
 #ifdef HAVE_DEBUGGER_SUPPORT

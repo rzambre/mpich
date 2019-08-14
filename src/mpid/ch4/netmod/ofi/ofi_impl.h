@@ -250,7 +250,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_lw_request_cc_val(void)
 #define MPIDI_OFI_SEND_REQUEST_CREATE_LW_CONDITIONAL(req, vci)          \
     do {                                                                \
         if (MPIDI_CH4_MT_MODEL == MPIDI_CH4_MT_DIRECT) {                \
-            (req) = MPID_Request_create_complete(MPIR_REQUEST_KIND__SEND, vci); \
+            (req) = MPID_Request_create_complete_unsafe(MPIR_REQUEST_KIND__SEND, vci); \
         } else {                                                        \
             printf("Not supported for multiple VCIs\n"); \
             if (MPIDI_OFI_need_request_creation(req)) {                 \
