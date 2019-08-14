@@ -285,7 +285,26 @@ MPL_STATIC_INLINE_PREFIX int MPID_Waitall(int count, MPIR_Request * request_ptrs
         }
         MPID_Progress_end(&progress_state);
     } else {
-        return MPIR_Waitall_impl(count, request_ptrs, array_of_statuses, request_properties);
+        MPID_Progress_start(&progress_state);
+        for (i = 0; i < count; i++) {
+            if (request_ptrs[i] == NULL) {
+                continue;
+            }
+            /* wait for ith request to complete */
+            while (!MPIR_Request_is_complete(request_ptrs[i])) {
+                /* generalized requests should already be finished */
+                MPIR_Assert(request_ptrs[i]->kind != MPIR_REQUEST_KIND__GREQUEST);
+
+                mpi_errno = MPID_Progress_wait_req(request_ptrs[i]);
+                if (mpi_errno != MPI_SUCCESS) {
+                    /* --BEGIN ERROR HANDLING-- */
+                    MPID_Progress_end(&progress_state);
+                    MPIR_ERR_POP(mpi_errno);
+                    /* --END ERROR HANDLING-- */
+                }
+            }
+        }
+        MPID_Progress_end(&progress_state);
     }
 
   fn_exit:
