@@ -238,8 +238,10 @@ typedef struct {
 MPL_STATIC_INLINE_PREFIX void MPID_Request_create_hook(struct MPIR_Request *req);
 MPL_STATIC_INLINE_PREFIX void MPID_Request_free_hook(struct MPIR_Request *req);
 MPL_STATIC_INLINE_PREFIX void MPID_Request_destroy_hook(struct MPIR_Request *req);
-MPL_STATIC_INLINE_PREFIX struct MPIR_Request *MPID_Request_create_complete(int kind, int vci);
+MPL_STATIC_INLINE_PREFIX struct MPIR_Request *MPID_Request_create_complete_unsafe(int kind, int vci);
+MPL_STATIC_INLINE_PREFIX struct MPIR_Request *MPID_Request_create_complete_safe(int kind, int vci);
 MPL_STATIC_INLINE_PREFIX struct MPIR_Request *MPID_Request_create_unsafe(int kind, int vci);
+MPL_STATIC_INLINE_PREFIX struct MPIR_Request *MPID_Request_create_safe(int kind, int vci);
 MPL_STATIC_INLINE_PREFIX void MPID_Request_free_unsafe(struct MPIR_Request *req);
 MPL_STATIC_INLINE_PREFIX void MPID_Request_free_safe(struct MPIR_Request *req);
 
