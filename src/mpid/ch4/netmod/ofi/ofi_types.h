@@ -104,6 +104,7 @@
  * whether we're using scalable endpoints or not. */
 static inline int MPIDI_OFI_av_to_ep(MPIDI_OFI_addr_t * av)
 {
+    printf("MPIDI_OFI_av_to_ep Not supported yet for multiple VNIs\n");
 #if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
     return (av)->ep_idx;
 #else /* This is necessary for older GCC compilers that don't properly do this
@@ -121,6 +122,7 @@ static inline int MPIDI_OFI_av_to_ep(MPIDI_OFI_addr_t * av)
  * whether we're using scalable endpoints or not. */
 static inline int MPIDI_OFI_comm_to_ep(MPIR_Comm * comm_ptr, int rank)
 {
+    printf("MPIDI_OFI_comm_to_ep Not supported yet for multiple VNIs\n");
 #if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
     return MPIDI_OFI_AV(MPIDIU_comm_rank_to_av(comm_ptr, rank)).ep_idx;
 #else /* This is necessary for older GCC compilers that don't properly do this
@@ -249,6 +251,7 @@ typedef struct {
     struct fid_domain *domain;
     struct fid_av *av;
     struct fid_ep *sep;
+    struct fid_ep *ep;
     MPIDI_OFI_context_t ctx;
 } MPIDI_OFI_vni_t;
 

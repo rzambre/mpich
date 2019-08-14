@@ -83,8 +83,13 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
                 /* Clear the data */
 
                 /* Get my VNI's address */
-                MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(vni).sep, addr_name,
+                if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
+                    MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(vni).sep, addr_name,
                                           &addr_name_len), getname);
+                } else {
+                    MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(vni).ep, addr_name,
+                                          &addr_name_len), getname);
+                }
                 MPIR_Assert(addr_name_len <= FI_NAME_MAX);
 
                 /* Insert my share of the data */
