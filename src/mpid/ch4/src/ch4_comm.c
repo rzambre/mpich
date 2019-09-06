@@ -210,7 +210,7 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
                 MPIR_ERR_POP(mpi_errno);
             }
         }
-        if (comm->rank == 0) printf("This COMM got VCI %d\n", vci);
+        //if (comm->rank == 0) printf("This COMM got VCI %d\n", vci);
         MPIDI_COMM_VCI(comm) = vci;
     }
 

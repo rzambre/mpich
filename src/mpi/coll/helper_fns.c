@@ -336,8 +336,8 @@ int MPIC_Sendrecv(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype sendtype
         }
     }
 
-    MPIR_Request_free(send_req_ptr);
-    MPIR_Request_free(recv_req_ptr);
+    MPID_Request_free_safe(send_req_ptr);
+    MPID_Request_free_safe(recv_req_ptr);
 
   fn_exit:
     MPL_DBG_MSG_D(MPIR_DBG_PT2PT, TYPICAL, "OUT: errflag = %d", (int) *errflag);
