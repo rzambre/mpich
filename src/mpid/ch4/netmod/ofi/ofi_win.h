@@ -38,6 +38,18 @@ static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win)
         itercount++;
 
         if (itercount == 1000) {
+            /* If this occurs, we should ideally be doing global progress
+             * since thread i of rank n could be flushing win_a[i] for a
+             * large message while thread i of rank m could be flushing
+             * win_b[i] of another large message. In PSM2, for example, the
+             * remote VCI needs to be progressed for completion of large
+             * transfers.
+             * The global progress must be with `fi_cq_reads` instead of
+             * `fi_cntr_reads` to guarantee the poking of progress engine
+             * underneath. I am not sure if we can expect the progress
+             * engine of the ofi provider to be kicked with a global
+             * progress that uses `fi_cntr_read`.
+             */ 
             ret = fi_cntr_wait(MPIDI_OFI_WIN(win).cmpl_cntr, tcount, 0);
             MPIDI_OFI_ERR(ret < 0 && ret != -FI_ETIMEDOUT,
                           mpi_errno,
