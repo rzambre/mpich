@@ -79,9 +79,18 @@ cvars:
         handoff
         trylock
 
+    - name        : MPIR_CVAR_CH4_MAX_RUNTIME_VCIS
+      category    : CH4
+      type        : int
+      default     : 1
+      class       : device
+      verbosity   : MPI_T_VERBOSITY_USER_BASIC
+      scope       : MPI_T_SCOPE_LOCAL
+      description : >-
+        Sets the number of VCIs that user needs (should be a subset of MPIDI_CH4_MAX_VCIS set at configure time).
+
 === END_MPI_T_CVAR_INFO_BLOCK ===
 */
-
 static int choose_netmod(void);
 static const char *get_mt_model_name(int mt);
 static void print_runtime_configurations(void);
@@ -451,6 +460,10 @@ int MPID_Init(void)
         /* Use the minimum tag_bits from the netmod and shmod */
         MPIR_Process.tag_bits = MPL_MIN(shm_tag_bits, nm_tag_bits);
     }
+
+    MPIDI_global.max_runtime_vcis = 1;
+    if (MPIR_CVAR_CH4_MAX_RUNTIME_VCIS > 1)
+        MPIDI_global.max_runtime_vcis = MPIR_CVAR_CH4_MAX_RUNTIME_VCIS;
 
     /* Override split_type */
     MPIDI_global.MPIR_Comm_fns_store.split_type = MPIDI_Comm_split_type;
