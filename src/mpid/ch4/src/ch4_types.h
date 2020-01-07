@@ -330,7 +330,6 @@ typedef struct MPIDI_CH4_Global_t {
 #endif
     OPA_int_t progress_count;
 
-    MPID_Thread_mutex_t vci_lock;
     int max_runtime_vcis;
     MPIDI_vci_t vci[MPIDI_CH4_MAX_VCIS];
 #if defined(MPIDI_CH4_USE_WORK_QUEUES)
