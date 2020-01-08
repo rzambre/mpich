@@ -203,7 +203,7 @@ static int dynproc_create_intercomm(const char *port_name, int remote_size, int 
 
     MPIR_Comm_commit(tmp_comm_ptr);
 
-    MPIDI_OFI_MPI_CALL_POP(MPIR_Comm_dup_impl(tmp_comm_ptr, newcomm));
+    MPIDI_OFI_MPI_CALL_POP(MPIR_Comm_dup_impl(tmp_comm_ptr, NULL, newcomm));
 
     tmp_comm_ptr->local_comm = NULL;    /* avoid freeing local comm with comm_release */
     MPIR_Comm_release(tmp_comm_ptr);

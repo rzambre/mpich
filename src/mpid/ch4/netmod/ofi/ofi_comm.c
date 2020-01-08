@@ -30,7 +30,9 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
     MPIDI_OFI_COMM(comm).conn_id = -1;
 
     /* eagain defaults to off */
-    MPIDI_OFI_COMM(comm).eagain = FALSE;
+    if (comm->hints[MPIR_COMM_HINT_EAGAIN] == 0) {
+        comm->hints[MPIR_COMM_HINT_EAGAIN] = FALSE;
+    }
 
     /* if this is MPI_COMM_WORLD, finish bc exchange */
     if (comm == MPIR_Process.comm_world) {

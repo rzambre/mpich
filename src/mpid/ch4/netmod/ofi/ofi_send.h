@@ -34,7 +34,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight(const void *buf,
         MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, buf, data_sz, NULL, comm->rank,
                                MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
-                               MPIDI_OFI_COMM(comm).eagain, vci);
+                               comm->hints[MPIR_COMM_HINT_EAGAIN], vci);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
   fn_exit:
@@ -67,7 +67,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request(const void *buf,
         MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, buf, data_sz, NULL, comm->rank,
                                MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
-                               MPIDI_OFI_COMM(comm).eagain, vci);
+                               comm->hints[MPIR_COMM_HINT_EAGAIN], vci);
     /* If we set CC>0 in case of injection, we need to decrement the CC
      * to tell the main thread we completed the injection. */
     MPIDI_OFI_SEND_REQUEST_COMPLETE_LW_CONDITIONAL(*request);

@@ -279,20 +279,9 @@ static int init_global_settings(const char *prov_name);
 static int init_hints(struct fi_info *hints);
 static struct fi_info *pick_provider(struct fi_info *hints, const char *provname,
                                      struct fi_info *prov_list);
-static int set_eagain(MPIR_Comm * comm_ptr, MPIR_Info * info, void *state);
 static int conn_manager_init();
 static int conn_manager_destroy();
 static int dynproc_send_disconnect(int conn_id);
-
-static int set_eagain(MPIR_Comm * comm_ptr, MPIR_Info * info, void *state)
-{
-    if (!strncmp(info->value, "true", strlen("true")))
-        MPIDI_OFI_COMM(comm_ptr).eagain = TRUE;
-    if (!strncmp(info->value, "false", strlen("false")))
-        MPIDI_OFI_COMM(comm_ptr).eagain = FALSE;
-
-    return MPI_SUCCESS;
-}
 
 static int conn_manager_init()
 {
@@ -1000,9 +989,7 @@ int MPIDI_OFI_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
     }
 #endif
 
-    mpi_errno = MPIR_Comm_register_hint("eagain", set_eagain, NULL);
-    if (mpi_errno)
-        MPIR_ERR_POP(mpi_errno);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_EAGAIN, "eagain", NULL, MPIR_COMM_HINT_TYPE_BOOL, 0);
 
   fn_exit:
 
