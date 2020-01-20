@@ -393,7 +393,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
     MPI_Aint origin_true_lb, target_true_lb;
     struct iovec iov;
     struct fi_rma_iov riov;
-    int dest_vni;
+    int hst_vni, rmt_vni;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_PUT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_PUT);
@@ -423,12 +423,13 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
     }
 
     /* For now, VNI i communicates with only VNI i of every other rank */
-    dest_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
+    rmt_vni = hst_vni;
     if (origin_contig && target_contig && (origin_bytes <= MPIDI_OFI_global.max_buffered_write)) {
         MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
                               fi_inject_write(MPIDI_OFI_WIN(win).ep,
                                               (char *) origin_addr + origin_true_lb, target_bytes,
-                                              MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+                                              MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                               (uint64_t) MPIDI_OFI_winfo_base(win, target_rank)
                                               + target_disp * MPIDI_OFI_winfo_disp_unit(win,
                                                                                         target_rank)
@@ -440,7 +441,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, &flags);
         offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
         msg.desc = NULL;
-        msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni);
+        msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
         msg.context = NULL;
         msg.data = 0;
         msg.msg_iov = &iov;
@@ -472,7 +473,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
 
     req->event_id = MPIDI_OFI_EVENT_ABORT;
     msg.desc = NULL;
-    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
     msg.context = NULL;
     msg.data = 0;
     req->next = MPIDI_OFI_WIN(win).syncQ;
@@ -580,7 +581,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
     size_t origin_bytes, target_bytes;
     struct fi_rma_iov riov;
     struct iovec iov;
-    int dest_vni;
+    int hst_vni, rmt_vni;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_GET);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_GET);
@@ -609,7 +610,8 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
     }
 
     /* For now, VNI i communicates with only VNI i of every other rank */
-    dest_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
+    rmt_vni = hst_vni;
     if (origin_contig && target_contig) {
         offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
         MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, &flags);
@@ -618,7 +620,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
         msg.desc = NULL;
         msg.msg_iov = &iov;
         msg.iov_count = 1;
-        msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+        msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
         msg.rma_iov = &riov;
         msg.rma_iov_count = 1;
         msg.context = NULL;
@@ -643,7 +645,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
     offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
     req->event_id = MPIDI_OFI_EVENT_ABORT;
     msg.desc = NULL;
-    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
     msg.context = NULL;
     msg.data = 0;
     req->next = MPIDI_OFI_WIN(win).syncQ;
@@ -892,7 +894,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
     struct fi_ioc *originv;
     struct fi_rma_ioc *targetv;
     unsigned i;
-    int dest_vni;
+    int hst_vni, rmt_vni;
     MPIDI_OFI_seg_state_t p;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_ACCUMULATE);
@@ -944,9 +946,10 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
                              target_datatype);
 
     /* For now, VNI i communicates with only VNI i of every other rank */
-    dest_vni = MPIDI_VCI(vci).vni;;
+    hst_vni = MPIDI_VCI(vci).vni;;
+    rmt_vni = hst_vni;
     msg.desc = NULL;
-    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
     msg.context = NULL;
     msg.data = 0;
     msg.datatype = fi_dt;
@@ -1304,7 +1307,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     struct fi_ioc resultv MPL_ATTR_ALIGNED(MPIDI_OFI_IOVEC_ALIGN);
     struct fi_rma_ioc targetv;
     struct fi_msg_atomic msg;
-    int dest_vni;
+    int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
 
@@ -1366,12 +1369,13 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     targetv.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
 
     /* For now, VNI i communicates with only VNI i of every other rank */
-    dest_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
+    rmt_vni = hst_vni;
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&originv);
     msg.msg_iov = &originv;
     msg.desc = NULL;
     msg.iov_count = 1;
-    msg.addr = MPIDI_OFI_av_to_phys_target_vni(av, dest_vni);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(av, hst_vni, rmt_vni);
     msg.rma_iov = &targetv;
     msg.rma_iov_count = 1;
     msg.datatype = fi_dt;

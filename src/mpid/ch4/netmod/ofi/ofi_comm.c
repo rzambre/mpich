@@ -55,7 +55,7 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
                     node++;
                     continue;
                 }
-                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[0 /*WRONG*/] = mapped_table[curr];
+                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[0][0 /*WRONG*/] = mapped_table[curr];
 #if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
                 MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
 #else
@@ -68,7 +68,7 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
             MPIDU_bc_table_destroy(table);
         } else {
             /* Exchange the addresses of the rest of the VNIs using the ROOT VNI */
-            int vni, i;
+            int vni, vnj, i;
             int my_rank, world_size;
             MPIR_Errflag_t errflag = MPIR_ERR_NONE;
             char addr_name[FI_NAME_MAX];
@@ -78,8 +78,19 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
 
             my_rank = MPIR_Comm_rank(comm);
             world_size = MPIR_Comm_size(comm);
-
-            for (vni = 1; vni < MPIDI_OFI_VNI_POOL(max_vnis); vni++) {
+            
+            /* Non-VNI related sets */
+            for (i = 0; i < world_size; i++) {
+#if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
+                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
+#else
+#if MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS
+                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
+#endif
+#endif
+            }
+            
+            for (vni = 0; vni < MPIDI_OFI_VNI_POOL(max_vnis); vni++) {
                 /* Clear the data */
 
                 /* Get my VNI's address */
@@ -105,18 +116,15 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
                 /* Insert the gathered addresses */
                 mapped_table =
                     (fi_addr_t *) MPL_malloc(world_size * sizeof(fi_addr_t), MPL_MEM_ADDRESS);
-                MPIDI_OFI_CALL(fi_av_insert
-                               (MPIDI_OFI_VNI(vni).av, vni_addr_table, world_size, mapped_table,
-                                0ULL, NULL), avmap);
-                for (i = 0; i < world_size; i++) {
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[vni] = mapped_table[i];
-#if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
-#else
-#if MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
-#endif
-#endif
+                for (vnj = 0; vnj < MPIDI_OFI_VNI_POOL(max_vnis); vnj++) {
+                    /* VNI_vnj inserts the addressess of VNI_vni on all ranks into its OFI AV */
+                    MPIDI_OFI_CALL(fi_av_insert
+                            (MPIDI_OFI_VNI(vnj).av, vni_addr_table, world_size, mapped_table,
+                             0ULL, NULL), avmap);
+                    /* Store the address returned by fi_av_insert into CH4's AV table */
+                    for (i = 0; i < world_size; i++) {
+                        MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[vnj][vni] = mapped_table[i];
+                    }
                 }
                 MPL_free(mapped_table);
                 MPL_free(vni_addr_table);
