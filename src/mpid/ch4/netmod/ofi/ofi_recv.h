@@ -48,7 +48,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_
     MPIR_Segment *seg;
     struct fi_msg_tagged msg;
     size_t iov_align = MPL_MAX(MPIDI_OFI_IOVEC_ALIGN, sizeof(void *));
-    int my_vni, src_vni;
+    int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_RECV_IOV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_RECV_IOV);
 
@@ -145,9 +145,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_
 
     MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_NOPACK;
 
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VCI i communicates only with VCI i on other ranks */
-    src_vni = my_vni;
+    rmt_vni = hst_vni;
     
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(originv);
     msg.msg_iov = originv;
@@ -157,9 +157,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_
     msg.ignore = mask_bits;
     msg.context = (void *) &(MPIDI_OFI_REQUEST(rreq, context));
     msg.data = 0;
-    msg.addr = (MPI_ANY_SOURCE == rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_av_to_phys_target_vni(addr, src_vni);
+    msg.addr = (MPI_ANY_SOURCE == rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
 
-    MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_CTX(my_vni).rx, &msg, flags), trecv,
+    MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_CTX(hst_vni).rx, &msg, flags), trecv,
                          MPIDI_OFI_CALL_LOCK, FALSE, vci);
 
   fn_exit:
@@ -195,7 +195,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     MPIR_Datatype *dt_ptr;
     struct fi_msg_tagged msg;
     char *recv_buf;
-    int my_vni, src_vni;
+    int hst_vni, rmt_vni;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IRECV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
@@ -260,18 +260,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     } else if (MPIDI_OFI_REQUEST(rreq, event_id) != MPIDI_OFI_EVENT_RECV_PACK)
         MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV;
     
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VCI i communicates only with VCI i on other ranks */
-    src_vni = my_vni;
+    rmt_vni = hst_vni;
     
     if (!flags) /* Branch should compile out */
-        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(my_vni).rx,
+        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(hst_vni).rx,
                                       recv_buf,
                                       data_sz,
                                       NULL,
                                       (MPI_ANY_SOURCE ==
                                        rank) ? FI_ADDR_UNSPEC :
-                                      MPIDI_OFI_av_to_phys_target_vni(addr, src_vni), match_bits,
+                                      MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                       mask_bits, (void *) &(MPIDI_OFI_REQUEST(rreq, context))),
                              trecv, MPIDI_OFI_CALL_LOCK, FALSE, vci);
     else {

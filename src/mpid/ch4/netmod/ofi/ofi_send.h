@@ -23,16 +23,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight(const void *buf,
 {
     int mpi_errno = MPI_SUCCESS;
     uint64_t match_bits;
-    int my_vni, dest_vni;
+    int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VNI i communicates with only VNI i of every other process */
-    dest_vni = my_vni;
+    rmt_vni = hst_vni;
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, 0);
     mpi_errno =
-        MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, buf, data_sz, NULL, comm->rank,
-                               MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni), match_bits,
+        MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, buf, data_sz, NULL, comm->rank,
+                               MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
                                comm->hints[MPIR_COMM_HINT_EAGAIN], vci);
     if (mpi_errno)
@@ -55,17 +55,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request(const void *buf,
 {
     int mpi_errno = MPI_SUCCESS;
     uint64_t match_bits;
-    int my_vni, dest_vni;
+    int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
     MPIDI_OFI_SEND_REQUEST_CREATE_LW_CONDITIONAL(*request, vci);
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VNI i communicates with only VNI i of every other process */
-    dest_vni = my_vni;
+    rmt_vni = hst_vni;
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, 0);
     mpi_errno =
-        MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, buf, data_sz, NULL, comm->rank,
-                               MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni), match_bits,
+        MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, buf, data_sz, NULL, comm->rank,
+                               MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
                                comm->hints[MPIR_COMM_HINT_EAGAIN], vci);
     /* If we set CC>0 in case of injection, we need to decrement the CC
@@ -113,7 +113,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
     MPIR_Segment *seg;
     MPI_Aint last_byte = dt_ptr->size * count;
     size_t iov_align = MPL_MAX(MPIDI_OFI_IOVEC_ALIGN, sizeof(void *));
-    int my_vni, dest_vni;
+    int hst_vni, rmt_vni;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_IOV);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_IOV);
@@ -205,9 +205,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
         oout = k;
     }
     
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VNI i communicates with only VNI i of every other process */
-    dest_vni = my_vni;
+    rmt_vni = hst_vni;
     
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(originv);
     msg.msg_iov = originv;
@@ -217,9 +217,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
     msg.ignore = 0ULL;
     msg.context = (void *) &(MPIDI_OFI_REQUEST(sreq, context));
     msg.data = comm->rank;
-    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni);
+    msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
 
-    MPIDI_OFI_CALL_RETRY(fi_tsendmsg(MPIDI_OFI_CTX(my_vni).tx, &msg, flags), tsendv,
+    MPIDI_OFI_CALL_RETRY(fi_tsendmsg(MPIDI_OFI_CTX(hst_vni).tx, &msg, flags), tsendv,
                          MPIDI_OFI_CALL_LOCK, FALSE, vci);
 
   fn_exit:
@@ -247,7 +247,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
     MPI_Aint last;
     char *send_buf;
     uint64_t match_bits;
-    int my_vni, dest_vni;
+    int hst_vni, rmt_vni;
+
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
 
@@ -259,9 +260,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
     MPIDI_OFI_REQUEST(sreq, datatype) = datatype;
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
 
-    my_vni = MPIDI_VCI(vci).vni;
+    hst_vni = MPIDI_VCI(vci).vni;
     /* For now, VNI i communicates with only VNI i of every other process */
-    dest_vni = my_vni;
+    rmt_vni = hst_vni;
 
     if (type == MPIDI_OFI_SYNC_SEND) {  /* Branch should compile out */
         int c = 1;
@@ -277,11 +278,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         ssend_match =
             MPIDI_OFI_init_recvtag(&ssend_mask, comm->context_id + context_offset, rank, tag);
         ssend_match |= MPIDI_OFI_SYNC_SEND_ACK;
-        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(my_vni).rx,      /* endpoint    */
+        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(hst_vni).rx,      /* endpoint    */
                                       NULL,     /* recvbuf     */
                                       0,        /* data sz     */
                                       NULL,     /* memregion descr  */
-                                      MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),       /* remote proc */
+                                      MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),       /* remote proc */
                                       ssend_match,      /* match bits  */
                                       0ULL,     /* mask bits   */
                                       (void *) &(ackreq->context)), trecvsync, MPIDI_OFI_CALL_LOCK,
@@ -323,11 +324,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         MPIDI_OFI_REQUEST(sreq, noncontig.pack) = NULL;
         MPIDI_OFI_REQUEST(sreq, noncontig.nopack) = NULL;
     }
-     
+    
+    hst_vni = MPIDI_VCI(vci).vni;
+    /* For now, VNI i communicates with only VNI i of every other process */
+    rmt_vni = hst_vni;
     if (data_sz <= MPIDI_OFI_global.max_buffered_send) {
         mpi_errno =
-            MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, send_buf, data_sz, NULL, comm->rank,
-                                   MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+            MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, send_buf, data_sz, NULL, comm->rank,
+                                   MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                    match_bits, NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
                                    FALSE, vci);
         if (mpi_errno)
@@ -335,8 +339,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         MPIDI_OFI_send_event(NULL, sreq, MPIDI_OFI_REQUEST(sreq, event_id));
     } else if (data_sz <= MPIDI_OFI_global.max_msg_size) {
         mpi_errno =
-            MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, send_buf, data_sz, NULL, comm->rank,
-                                   MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+            MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, send_buf, data_sz, NULL, comm->rank,
+                                   MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                    match_bits, (void *) &(MPIDI_OFI_REQUEST(sreq, context)),
                                    MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_LOCK, FALSE, vci);
         if (mpi_errno)
@@ -383,11 +387,11 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
          * MPIDI_OFI_global.max_msg_size */
         MPIDI_OFI_REQUEST(sreq, util_comm) = comm;
         MPIDI_OFI_REQUEST(sreq, util_id) = rank;
-        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, send_buf,
+        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, send_buf,
                                            MPIDI_OFI_global.max_msg_size,
                                            NULL,
                                            comm->rank,
-                                           MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),
+                                           MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                            match_bits,
                                            (void *) &(MPIDI_OFI_REQUEST(sreq, context)),
                                            MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_NO_LOCK, FALSE,

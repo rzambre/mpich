@@ -40,7 +40,7 @@ static inline int MPIDI_OFI_do_iprobe(int source,
     if (unlikely(MPI_ANY_SOURCE == source))
         remote_proc = FI_ADDR_UNSPEC;
     else
-        remote_proc = MPIDI_OFI_av_to_phys_target_vni(addr, src_vni);
+        remote_proc = MPIDI_OFI_av_to_phys_target_vni(addr, my_vni, src_vni);
 
     if (message) {
         printf("Multiple VCIs not supported\n");

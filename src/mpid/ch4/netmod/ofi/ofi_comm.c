@@ -57,7 +57,7 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
                     node++;
                     continue;
                 }
-                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[0 /*WRONG*/] = mapped_table[curr];
+                MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[0][0 /*WRONG*/] = mapped_table[curr];
 #if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
                 MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
 #else
@@ -70,59 +70,57 @@ int MPIDI_OFI_mpi_comm_create_hook(MPIR_Comm * comm)
             MPIDU_bc_table_destroy(table);
         } else {
             /* Exchange the addresses of the rest of the VNIs using the ROOT VNI */
-            int vni, i;
-            int my_rank, world_size;
-            MPIR_Errflag_t errflag = MPIR_ERR_NONE;
-            char addr_name[FI_NAME_MAX];
-            size_t addr_name_len = FI_NAME_MAX;
-            void *vni_addr_table;
-            fi_addr_t *mapped_table;
+            int my_rank = MPIR_Comm_rank(comm);
+            int world_size = MPIR_Comm_size(comm);
+            int num_vnis = MPIDI_OFI_VNI_POOL(max_vnis);
 
-            my_rank = MPIR_Comm_rank(comm);
-            world_size = MPIR_Comm_size(comm);
+            /* get addr name length */
+            size_t name_len = 0;
+            int ret = fi_getname((fid_t) MPIDI_OFI_VNI(0).ep, NULL, &name_len);
+            MPIR_Assert(ret == -FI_ETOOSMALL);
+            MPIR_Assert(name_len > 0);
 
-            for (vni = 1; vni < MPIDI_OFI_VNI_POOL(max_vnis); vni++) {
-                /* Clear the data */
+            int my_len = num_vnis * name_len;
+            char *all_names = MPL_malloc(world_size * my_len, MPL_MEM_ADDRESS);
+            MPIR_Assert(all_names);
 
-                /* Get my VNI's address */
-                if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
-                    MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(vni).sep, addr_name,
-                                          &addr_name_len), getname);
-                } else {
-                    MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(vni).ep, addr_name,
-                                          &addr_name_len), getname);
-                }
-                MPIR_Assert(addr_name_len <= FI_NAME_MAX);
+            char *my_names = all_names + my_rank*my_len;
 
-                /* Insert my share of the data */
-                vni_addr_table = MPL_malloc(world_size * addr_name_len, MPL_MEM_ADDRESS);
-                memset(vni_addr_table, 0, world_size * addr_name_len);
-                memcpy(((char *) vni_addr_table) + my_rank * addr_name_len, addr_name,
-                       addr_name_len);
-
-                /* Broadcast my address and receive everyone else's address for this VNI */
-                MPIR_Allgather(MPI_IN_PLACE, addr_name_len, MPI_BYTE, vni_addr_table, addr_name_len,
-                               MPI_BYTE, comm, &errflag);
-
-                /* Insert the gathered addresses */
-                mapped_table =
-                    (fi_addr_t *) MPL_malloc(world_size * sizeof(fi_addr_t), MPL_MEM_ADDRESS);
-                MPIDI_OFI_CALL(fi_av_insert
-                               (MPIDI_OFI_VNI(vni).av, vni_addr_table, world_size, mapped_table,
-                                0ULL, NULL), avmap);
-                for (i = 0; i < world_size; i++) {
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).dest[vni] = mapped_table[i];
-#if MPIDI_OFI_ENABLE_RUNTIME_CHECKS
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
-#else
-#if MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS
-                    MPIDI_OFI_AV(&MPIDIU_get_av(0, i)).ep_idx = 0;
-#endif
-#endif
-                }
-                MPL_free(mapped_table);
-                MPL_free(vni_addr_table);
+            /* put in my addrnames */
+            for (int i = 0; i < num_vnis; i++) {
+                size_t actual_name_len = name_len;
+                char *vni_addrname = my_names + i * name_len;
+                MPIDI_OFI_CALL(fi_getname((fid_t) MPIDI_OFI_VNI(i).ep, vni_addrname,
+                            &actual_name_len), getname);
+                MPIR_Assert(actual_name_len == name_len);
             }
+            /* Allgather */
+            MPIR_Comm *comm = MPIR_Process.comm_world;
+            MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+            mpi_errno = MPIR_Allgather_intra_auto(MPI_IN_PLACE, 0, MPI_BYTE,
+                    all_names, my_len, MPI_BYTE, comm, &errflag);
+
+            /* insert the addresses */
+            fi_addr_t *mapped_table;
+            mapped_table = (fi_addr_t *) MPL_malloc(world_size * num_vnis * sizeof(fi_addr_t), MPL_MEM_ADDRESS);
+            for (int vni_local = 0; vni_local < num_vnis; vni_local++) {
+                MPIDI_OFI_CALL(fi_av_insert(MPIDI_OFI_VNI(vni_local).av, all_names, world_size * num_vnis,
+                            mapped_table, 0ULL, NULL), avmap);
+                for (int r = 0; r < world_size; r++) {
+                    MPIDI_OFI_addr_t *av = &MPIDI_OFI_AV(&MPIDIU_get_av(0, r));
+                    for (int vni_remote = 0; vni_remote < num_vnis; vni_remote++) {
+                        if (vni_local == 0 && vni_remote == 0) {
+                            continue;
+                        }
+                        int idx = r * num_vnis + vni_remote;
+                        MPIR_Assert(mapped_table[idx] != FI_ADDR_NOTAVAIL);
+                        av->dest[vni_local][vni_remote] = mapped_table[idx];
+                    }
+                }
+            }
+
+            MPL_free(all_names);
+            MPL_free(mapped_table);
         }
     }
 
