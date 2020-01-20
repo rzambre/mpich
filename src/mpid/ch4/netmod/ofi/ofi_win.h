@@ -26,7 +26,7 @@ static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_WIN_PROGRESS_FENCE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_WIN_PROGRESS_FENCE);
 
-    vci = MPIDI_COMM_VCI(win->comm_ptr);
+    vci = 0;
     tcount = *MPIDI_OFI_WIN(win).issued_cntr;
     firstcount = donecount = fi_cntr_read(MPIDI_OFI_WIN(win).cmpl_cntr);
 

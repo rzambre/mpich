@@ -183,7 +183,7 @@ static int win_allgather(MPIR_Win * win, void *base, int disp_unit)
      * that all registered memory regions must be backed by physical memory
      * pages at the time the registration call is made. */
     if (MPIDI_OFI_ENABLE_MR_SCALABLE || base) {
-        int vni = MPIDI_VCI(MPIDI_COMM_VCI(win->comm_ptr)).vni;
+        int vni = MPIDI_VCI(0).vni;
         MPIDI_OFI_CALL(fi_mr_reg(MPIDI_OFI_VNI(vni).domain,     /* In:  Domain Object       */
                                  base,  /* In:  Lower memory address */
                                  win->size,     /* In:  Length              */
@@ -517,7 +517,7 @@ static int win_init_global(MPIR_Win * win)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_WIN_INIT_GLOBAL);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_WIN_INIT_GLOBAL);
 
-    vni = MPIDI_VCI(MPIDI_COMM_VCI(win->comm_ptr)).vni;
+    vni = MPIDI_VCI(0).vni;
 
     MPIDI_OFI_WIN(win).ep = MPIDI_OFI_CTX(vni).tx;
     MPIDI_OFI_WIN(win).cmpl_cntr = MPIDI_OFI_CTX(vni).rma_cmpl_cntr;

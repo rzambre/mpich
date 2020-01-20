@@ -16,7 +16,7 @@
 #pragma _CRI duplicate MPI_Recv as PMPI_Recv
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-             MPI_Comm comm, MPI_Status * status) __attribute__ ((weak, alias("PMPI_Recv")));
+             MPI_Comm comm, MPI_Status * status, int hst_vci, int rmt_vci) __attribute__ ((weak, alias("PMPI_Recv")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -62,7 +62,7 @@ length of the message can be determined with 'MPI_Get_count'.
 
 @*/
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-             MPI_Comm comm, MPI_Status * status)
+             MPI_Comm comm, MPI_Status * status, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Comm *comm_ptr = NULL;
@@ -133,7 +133,8 @@ int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
      * decides to block internally.  MPID_Recv in that case will
      * re-aquire the SINGLE_CS before returnning */
     mpi_errno = MPID_Recv(buf, count, datatype, source, tag, comm_ptr,
-                          MPIR_CONTEXT_INTRA_PT2PT, status, &request_ptr);
+                          MPIR_CONTEXT_INTRA_PT2PT, status, &request_ptr,
+                          hst_vci, rmt_vci);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
 

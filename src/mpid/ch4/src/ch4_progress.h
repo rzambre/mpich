@@ -91,11 +91,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_global(MPIDI_hook_flags_t hook_
 
     /* Progress all the allocated VCIs */
     for (vci = 0; vci < MPIDI_VCI_POOL(max_vcis); vci++) {
-        if (!MPIDI_VCI(vci).is_free) {
-            mpi_errno = MPIDI_Progress_test_vci(hook_flags, vci);
-            if (mpi_errno != MPI_SUCCESS) {
-                MPIR_ERR_POP(mpi_errno);
-            }
+        mpi_errno = MPIDI_Progress_test_vci(hook_flags, vci);
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
         }
     }
 

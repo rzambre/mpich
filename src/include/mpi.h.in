@@ -926,9 +926,9 @@ typedef int (MPI_Datarep_extent_function)(MPI_Datatype datatype, MPI_Aint *,
 /* We require that the C compiler support prototypes */
 /* Begin Prototypes */
 int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-             MPI_Comm comm) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+             MPI_Comm comm, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-             MPI_Comm comm, MPI_Status *status) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+             MPI_Comm comm, MPI_Status *status, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) MPICH_API_PUBLIC;
 int MPI_Bsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
               MPI_Comm comm) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
@@ -939,7 +939,7 @@ int MPI_Rsend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
 int MPI_Buffer_attach(void *buffer, int size) MPICH_API_PUBLIC;
 int MPI_Buffer_detach(void *buffer_addr, int *size) MPICH_API_PUBLIC;
 int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-              MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+              MPI_Comm comm, MPI_Request *request, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
                MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
@@ -947,7 +947,7 @@ int MPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
 int MPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
                MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-              MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+              MPI_Comm comm, MPI_Request *request, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int MPI_Wait(MPI_Request *request, MPI_Status *status) MPICH_API_PUBLIC;
 int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status) MPICH_API_PUBLIC;
 int MPI_Request_free(MPI_Request *request) MPICH_API_PUBLIC;
@@ -1571,9 +1571,9 @@ int MPIX_Comm_agree(MPI_Comm comm, int *flag) MPICH_API_PUBLIC;
 /* Here are the bindings of the profiling routines */
 #if !defined(MPI_BUILD_PROFILING)
 int PMPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-              MPI_Comm comm) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+              MPI_Comm comm, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-              MPI_Comm comm, MPI_Status *status) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+              MPI_Comm comm, MPI_Status *status, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Get_count(const MPI_Status *status, MPI_Datatype datatype, int *count) MPICH_API_PUBLIC;
 int PMPI_Bsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
                MPI_Comm comm) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
@@ -1584,7 +1584,7 @@ int PMPI_Rsend(const void *buf, int count, MPI_Datatype datatype, int dest, int 
 int PMPI_Buffer_attach(void *buffer, int size) MPICH_API_PUBLIC;
 int PMPI_Buffer_detach(void *buffer_addr, int *size) MPICH_API_PUBLIC;
 int PMPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-               MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+               MPI_Comm comm, MPI_Request *request, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Ibsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
                 MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
@@ -1592,7 +1592,7 @@ int PMPI_Issend(const void *buf, int count, MPI_Datatype datatype, int dest, int
 int PMPI_Irsend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
                 MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-               MPI_Comm comm, MPI_Request *request) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
+               MPI_Comm comm, MPI_Request *request, int hst_vci, int rmt_vci) MPICH_ATTR_POINTER_WITH_TYPE_TAG(1,3) MPICH_API_PUBLIC;
 int PMPI_Wait(MPI_Request *request, MPI_Status *status) MPICH_API_PUBLIC;
 int PMPI_Test(MPI_Request *request, int *flag, MPI_Status *status) MPICH_API_PUBLIC;
 int PMPI_Request_free(MPI_Request *request) MPICH_API_PUBLIC;

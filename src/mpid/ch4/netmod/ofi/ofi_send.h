@@ -19,22 +19,23 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight(const void *buf,
                                                         int rank,
                                                         int tag, MPIR_Comm * comm,
                                                         int context_offset, MPIDI_av_entry_t * addr,
-                                                        int vci)
+                                                        int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     uint64_t match_bits;
     int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT);
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VNI i communicates with only VNI i of every other process */
-    rmt_vni = hst_vni;
+    /* For now, all ranks participate during communicator creation. So remote VCI's
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, 0);
     mpi_errno =
         MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, buf, data_sz, NULL, comm->rank,
                                MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
-                               MPIDI_OFI_COMM(comm).eagain, vci);
+                               MPIDI_OFI_COMM(comm).eagain, hst_vci);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
   fn_exit:
@@ -51,23 +52,25 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request(const void *buf,
                                                                 MPIR_Comm * comm,
                                                                 int context_offset,
                                                                 MPIDI_av_entry_t * addr,
-                                                                int vci, MPIR_Request ** request)
+                                                                int hst_vci, int rmt_vci,
+                                                                MPIR_Request ** request)
 {
     int mpi_errno = MPI_SUCCESS;
     uint64_t match_bits;
     int hst_vni, rmt_vni;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_LIGHTWEIGHT_REQUEST);
-    MPIDI_OFI_SEND_REQUEST_CREATE_LW_CONDITIONAL(*request, vci);
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VNI i communicates with only VNI i of every other process */
-    rmt_vni = hst_vni;
+    MPIDI_OFI_SEND_REQUEST_CREATE_LW_CONDITIONAL(*request, hst_vci);
+    /* For now, all ranks participate during communicator creation. So remote VCI's
+     * information is the same as that on the host */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, 0);
     mpi_errno =
         MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, buf, data_sz, NULL, comm->rank,
                                MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
-                               MPIDI_OFI_COMM(comm).eagain, vci);
+                               MPIDI_OFI_COMM(comm).eagain, hst_vci);
     /* If we set CC>0 in case of injection, we need to decrement the CC
      * to tell the main thread we completed the injection. */
     MPIDI_OFI_SEND_REQUEST_COMPLETE_LW_CONDITIONAL(*request);
@@ -93,8 +96,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_lightweight_request(const void *buf,
 */
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count, size_t data_sz,        /* data_sz is passed in here for reusing */
                                                 int rank, uint64_t match_bits, MPIR_Comm * comm,
-                                                MPIDI_av_entry_t * addr, int vci, MPIR_Request * sreq,
-                                                MPIR_Datatype * dt_ptr)
+                                                MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci,
+                                                MPIR_Request * sreq, MPIR_Datatype * dt_ptr)
 {
     int mpi_errno = MPI_SUCCESS;
     struct iovec *originv = NULL, *originv_huge = NULL;
@@ -205,9 +208,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
         oout = k;
     }
     
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VNI i communicates with only VNI i of every other process */
-    rmt_vni = hst_vni;
+    /* For now, all ranks participate during communicator creation. So remote VCI's
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(originv);
     msg.msg_iov = originv;
@@ -220,7 +224,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
     msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
 
     MPIDI_OFI_CALL_RETRY(fi_tsendmsg(MPIDI_OFI_CTX(hst_vni).tx, &msg, flags), tsendv,
-                         MPIDI_OFI_CALL_LOCK, FALSE, vci);
+                         MPIDI_OFI_CALL_LOCK, FALSE, hst_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND_IOV);
@@ -237,7 +241,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_iov(const void *buf, MPI_Aint count,
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint count,
                                                    MPI_Datatype datatype, int rank, int tag,
                                                    MPIR_Comm * comm, int context_offset,
-                                                   MPIDI_av_entry_t * addr, int vci,
+                                                   MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci,
                                                    MPIR_Request ** request, int dt_contig,
                                                    size_t data_sz, MPIR_Datatype * dt_ptr,
                                                    MPI_Aint dt_true_lb, uint64_t type)
@@ -252,9 +256,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
 
-    MPIDI_OFI_REQUEST_CREATE_CONDITIONAL(sreq, MPIR_REQUEST_KIND__SEND, vci);
+    MPIDI_OFI_REQUEST_CREATE_CONDITIONAL(sreq, MPIR_REQUEST_KIND__SEND, hst_vci);
     *request = sreq;
-    MPIDI_REQUEST(*request, vci) = vci; 
+    MPIDI_REQUEST(*request, vci) = hst_vci; 
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, type);
     MPIDI_OFI_REQUEST(sreq, event_id) = MPIDI_OFI_EVENT_SEND;
     MPIDI_OFI_REQUEST(sreq, datatype) = datatype;
@@ -290,7 +294,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
     if (!dt_contig) {
         if (MPIDI_OFI_ENABLE_PT2PT_NOPACK && data_sz <= MPIDI_OFI_global.max_msg_size) {
             mpi_errno =
-                MPIDI_OFI_send_iov(buf, count, data_sz, rank, match_bits, comm, addr, vci, sreq, dt_ptr);
+                MPIDI_OFI_send_iov(buf, count, data_sz, rank, match_bits, comm, addr, hst_vci, rmt_vci, sreq, dt_ptr);
             if (mpi_errno == MPI_SUCCESS)       /* Send posted using iov */
                 goto fn_exit;
             else if (mpi_errno != MPIDI_OFI_SEND_NEEDS_PACK)
@@ -321,15 +325,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         MPIDI_OFI_REQUEST(sreq, noncontig.nopack) = NULL;
     }
     
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VNI i communicates with only VNI i of every other process */
-    rmt_vni = hst_vni;
+    /* For now, all ranks participate during communicator creation. So remote VCI's
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     if (data_sz <= MPIDI_OFI_global.max_buffered_send) {
         mpi_errno =
             MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, send_buf, data_sz, NULL, comm->rank,
                                    MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                    match_bits, NULL, MPIDI_OFI_DO_INJECT, MPIDI_OFI_CALL_LOCK,
-                                   FALSE, vci);
+                                   FALSE, hst_vci);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
         MPIDI_OFI_send_event(NULL, sreq, MPIDI_OFI_REQUEST(sreq, event_id));
@@ -338,7 +343,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
             MPIDI_OFI_send_handler(MPIDI_OFI_CTX(hst_vni).tx, send_buf, data_sz, NULL, comm->rank,
                                    MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                    match_bits, (void *) &(MPIDI_OFI_REQUEST(sreq, context)),
-                                   MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_LOCK, FALSE, vci);
+                                   MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_LOCK, FALSE, hst_vci);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
     } else if (unlikely(1)) {
@@ -391,7 +396,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
                                            match_bits,
                                            (void *) &(MPIDI_OFI_REQUEST(sreq, context)),
                                            MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_NO_LOCK, FALSE,
-                                           vci);
+                                           hst_vci);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
         ctrl.type = MPIDI_OFI_CTRL_HUGE;
@@ -413,7 +418,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send(const void *buf, MPI_Aint count, MPI_Datatype datatype,
                                             int rank, int tag, MPIR_Comm * comm, int context_offset,
                                             MPIDI_av_entry_t * addr, MPIR_Request ** request,
-                                            int noreq, uint64_t syncflag, int vci)
+                                            int noreq, uint64_t syncflag, int hst_vci, int rmt_vci)
 {
     int dt_contig, mpi_errno;
     size_t data_sz;
@@ -428,14 +433,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send(const void *buf, MPI_Aint count, MPI
     if (likely(!syncflag && dt_contig && (data_sz <= MPIDI_OFI_global.max_buffered_send)))
         if (noreq)
             mpi_errno = MPIDI_OFI_send_lightweight((char *) buf + dt_true_lb, data_sz,
-                                                   rank, tag, comm, context_offset, addr, vci);
+                                                   rank, tag, comm, context_offset, addr, hst_vci, rmt_vci);
         else
             mpi_errno = MPIDI_OFI_send_lightweight_request((char *) buf + dt_true_lb, data_sz,
                                                            rank, tag, comm, context_offset,
-                                                           addr, vci, request);
+                                                           addr, hst_vci, rmt_vci, request);
     else
         mpi_errno = MPIDI_OFI_send_normal(buf, count, datatype, rank, tag, comm,
-                                          context_offset, addr, vci, request, dt_contig,
+                                          context_offset, addr, hst_vci, rmt_vci, request, dt_contig,
                                           data_sz, dt_ptr, dt_true_lb, syncflag);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_SEND);
@@ -446,7 +451,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(const void *buf, MPI_Aint count,
                                                MPI_Datatype datatype, int rank, int tag,
                                                MPIR_Comm * comm, int context_offset,
                                                MPIDI_av_entry_t * addr, MPIR_Request ** request,
-                                               int vci)
+                                               int hst_vci, int rmt_vci)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_SEND);
@@ -460,7 +465,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(const void *buf, MPI_Aint count,
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, (*request == NULL), 0ULL, vci);
+                                   context_offset, addr, request, (*request == NULL), 0ULL, hst_vci, rmt_vci);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SEND);
@@ -485,7 +490,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_ssend(const void *buf, MPI_Aint count,
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0);
+                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0, 0);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SSEND);
@@ -497,7 +502,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(const void *buf, MPI_Aint count,
                                                 MPI_Datatype datatype, int rank, int tag,
                                                 MPIR_Comm * comm, int context_offset,
                                                 MPIDI_av_entry_t * addr, MPIR_Request ** request,
-                                                int vci)
+                                                int hst_vci, int rmt_vci)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ISEND);
@@ -511,7 +516,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(const void *buf, MPI_Aint count,
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, 0, 0ULL, vci);
+                                   context_offset, addr, request, 0, 0ULL, hst_vci, rmt_vci);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISEND);
@@ -536,7 +541,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_issend(const void *buf, MPI_Aint count
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0);
+                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0, 0);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISSEND);

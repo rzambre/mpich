@@ -16,7 +16,7 @@
 #pragma _CRI duplicate MPI_Irecv as PMPI_Irecv
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-              MPI_Comm comm, MPI_Request * request) __attribute__ ((weak, alias("PMPI_Irecv")));
+              MPI_Comm comm, MPI_Request * request, int hst_vci, int rmt_vci) __attribute__ ((weak, alias("PMPI_Irecv")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -56,7 +56,7 @@ Output Parameters:
 .N MPI_ERR_EXHAUSTED
 @*/
 int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
-              int tag, MPI_Comm comm, MPI_Request * request)
+              int tag, MPI_Comm comm, MPI_Request * request, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Comm *comm_ptr = NULL;
@@ -122,7 +122,8 @@ int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
     /* ... body of routine ...  */
 
     mpi_errno = MPID_Irecv(buf, count, datatype, source, tag, comm_ptr,
-                           MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
+                           MPIR_CONTEXT_INTRA_PT2PT, &request_ptr,
+                           hst_vci, rmt_vci);
     /* return the handle of the request to the user */
     /* MPIU_OBJ_HANDLE_PUBLISH is unnecessary for irecv, lower-level access is
      * responsible for its own consistency, while upper-level field access is

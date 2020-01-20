@@ -481,7 +481,7 @@ static inline int MPIDIG_mpi_win_fence(int massert, MPIR_Win * win)
         MPIR_ERR_POP(mpi_errno);
 #endif
 
-    vci = MPIDI_COMM_VCI(win->comm_ptr);
+    vci = 0;
     /* Ensure completion of AM operations */
     /*do {
         MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
@@ -568,7 +568,7 @@ static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
 
-    vci = MPIDI_COMM_VCI(win->comm_ptr);
+    vci = 0;
 
     /* Check window lock epoch.
      * PROC_NULL does not update per-target epoch. */

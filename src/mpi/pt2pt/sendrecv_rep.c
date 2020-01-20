@@ -152,12 +152,12 @@ int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype,
         }
 
         mpi_errno = MPID_Irecv(buf, count, datatype, source, recvtag,
-                               comm_ptr, MPIR_CONTEXT_INTRA_PT2PT, &rreq);
+                               comm_ptr, MPIR_CONTEXT_INTRA_PT2PT, &rreq, 0, 0);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
 
         mpi_errno = MPID_Isend(tmpbuf, tmpbuf_count, MPI_PACKED, dest,
-                               sendtag, comm_ptr, MPIR_CONTEXT_INTRA_PT2PT, &sreq);
+                               sendtag, comm_ptr, MPIR_CONTEXT_INTRA_PT2PT, &sreq, 0, 0);
         if (mpi_errno != MPI_SUCCESS) {
             /* --BEGIN ERROR HANDLING-- */
             if (mpi_errno == MPIX_ERR_NOREQ)
