@@ -836,9 +836,7 @@ int MPIDI_OFI_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
     }
 
     for (i = 0; i < MPIDI_OFI_VNI_POOL(max_vnis); i++) {
-        MPIDI_OFI_CALL(fi_domain(MPIDI_OFI_global.fabric, prov_use, &MPIDI_OFI_VNI(i).domain, NULL),
-                       opendomain);
-        MPIDI_OFI_CALL(fi_av_open(MPIDI_OFI_VNI(i).domain,      /* In:  Domain Object    */
+        MPIDI_OFI_CALL(fi_av_open(MPIDI_OFI_global.domain,      /* In:  Domain Object    */
                                   &av_attr,     /* In:  Configuration object */
                                   &MPIDI_OFI_VNI(i).av, /* Out: AV Object            */
                                   NULL), avopen);       /* Context: AV events        */
@@ -1061,7 +1059,6 @@ int MPIDI_OFI_mpi_finalize_hook(void)
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).rma_cmpl_cntr), cntrclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).cq), cqclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).av), avclose);
-            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).domain), domainclose);
         }
     } else {
         for (i = 0; i < MPIDI_OFI_VNI_POOL(max_vnis); i++) {
@@ -1069,7 +1066,6 @@ int MPIDI_OFI_mpi_finalize_hook(void)
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).cq), cqclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_CTX(i).rma_cmpl_cntr), cntrclose);
             MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).av), avclose);
-            MPIDI_OFI_CALL(fi_close((fid_t) MPIDI_OFI_VNI(i).domain), domainclose);
         }
     }
 
@@ -1300,20 +1296,20 @@ static int create_endpoint(struct fi_info *prov_use, struct fid_domain *domain,
 
         /* Create scalable endpoint */
         MPIDI_OFI_CALL(fi_scalable_ep
-                       (MPIDI_OFI_VNI(index).domain, prov_use, &MPIDI_OFI_VNI(index).sep, NULL),
+                       (MPIDI_OFI_global.domain, prov_use, &MPIDI_OFI_VNI(index).sep, NULL),
                        ep);
         MPIDI_OFI_CALL(fi_scalable_ep_bind
                        (MPIDI_OFI_VNI(index).sep, &MPIDI_OFI_VNI(index).av->fid, 0), bind);
 
         memset(&cq_attr, 0, sizeof(cq_attr));
         cq_attr.format = FI_CQ_FORMAT_TAGGED;
-        MPIDI_OFI_CALL(fi_cq_open(MPIDI_OFI_VNI(index).domain,
+        MPIDI_OFI_CALL(fi_cq_open(MPIDI_OFI_global.domain,
                                   &cq_attr, &MPIDI_OFI_CTX(index).cq, NULL), opencq);
 
         memset(&cntr_attr, 0, sizeof(cntr_attr));
         cntr_attr.events = FI_CNTR_EVENTS_COMP;
         cntr_attr.wait_obj = FI_WAIT_UNSPEC;
-        MPIDI_OFI_CALL(fi_cntr_open(MPIDI_OFI_VNI(index).domain,        /* In:  Domain Object        */
+        MPIDI_OFI_CALL(fi_cntr_open(MPIDI_OFI_global.domain,        /* In:  Domain Object        */
                                     &cntr_attr, /* In:  Configuration object */
                                     &MPIDI_OFI_CTX(index).rma_cmpl_cntr,        /* Out: Counter Object       */
                                     NULL), openct);     /* Context: counter events   */
@@ -1376,11 +1372,11 @@ static int create_endpoint(struct fi_info *prov_use, struct fid_domain *domain,
         /* Bind the CQs, counters,  and AV to the endpoint object     */
         /* ---------------------------------------------------------- */
         /* "Normal" Endpoint */
-        MPIDI_OFI_CALL(fi_endpoint(MPIDI_OFI_VNI(index).domain, prov_use, &MPIDI_OFI_VNI(index).ep, NULL), ep);
+        MPIDI_OFI_CALL(fi_endpoint(MPIDI_OFI_global.domain, prov_use, &MPIDI_OFI_VNI(index).ep, NULL), ep);
         
         memset(&cq_attr, 0, sizeof(cq_attr));
         cq_attr.format = FI_CQ_FORMAT_TAGGED;
-        MPIDI_OFI_CALL(fi_cq_open(MPIDI_OFI_VNI(index).domain,
+        MPIDI_OFI_CALL(fi_cq_open(MPIDI_OFI_global.domain,
                                   &cq_attr, &MPIDI_OFI_CTX(index).cq, NULL), opencq);
 
         MPIDI_OFI_CALL(fi_ep_bind(MPIDI_OFI_VNI(index).ep, &MPIDI_OFI_CTX(index).cq->fid, FI_SEND | FI_RECV | FI_SELECTIVE_COMPLETION),
@@ -1389,7 +1385,7 @@ static int create_endpoint(struct fi_info *prov_use, struct fid_domain *domain,
         memset(&cntr_attr, 0, sizeof(cntr_attr));
         cntr_attr.events = FI_CNTR_EVENTS_COMP;
         cntr_attr.wait_obj = FI_WAIT_UNSPEC;
-        MPIDI_OFI_CALL(fi_cntr_open(MPIDI_OFI_VNI(index).domain,        /* In:  Domain Object        */
+        MPIDI_OFI_CALL(fi_cntr_open(MPIDI_OFI_global.domain,        /* In:  Domain Object        */
                                     &cntr_attr, /* In:  Configuration object */
                                     &MPIDI_OFI_CTX(index).rma_cmpl_cntr,        /* Out: Counter Object       */
                                     NULL), openct);     /* Context: counter events   */
@@ -1684,7 +1680,7 @@ static int init_hints(struct fi_info *hints)
     /* ------------------------------------------------------------------------ */
     hints->addr_format = FI_FORMAT_UNSPEC;
 #if defined(MPICH_IS_THREADED) && (MPICH_THREAD_GRANULARITY != MPICH_THREAD_GRANULARITY__GLOBAL)
-    hints->domain_attr->threading = FI_THREAD_DOMAIN;
+    hints->domain_attr->threading = FI_THREAD_COMPLETION;
 #else
     hints->domain_attr->threading = FI_THREAD_DOMAIN;
 #endif

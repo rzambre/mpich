@@ -184,7 +184,7 @@ static int win_allgather(MPIR_Win * win, void *base, int disp_unit)
      * pages at the time the registration call is made. */
     if (MPIDI_OFI_ENABLE_MR_SCALABLE || base) {
         int vni = MPIDI_VCI(0).vni;
-        MPIDI_OFI_CALL(fi_mr_reg(MPIDI_OFI_VNI(vni).domain,     /* In:  Domain Object       */
+        MPIDI_OFI_CALL(fi_mr_reg(MPIDI_OFI_global.domain,     /* In:  Domain Object       */
                                  base,  /* In:  Lower memory address */
                                  win->size,     /* In:  Length              */
                                  FI_REMOTE_READ | FI_REMOTE_WRITE,      /* In:  Expose MR for read  */
