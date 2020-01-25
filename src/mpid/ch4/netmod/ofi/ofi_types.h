@@ -248,7 +248,6 @@ typedef struct {
 typedef struct {
     char padding[64];
     int is_free;
-    struct fid_domain *domain;
     struct fid_av *av;
     struct fid_ep *sep;
     struct fid_ep *ep;
