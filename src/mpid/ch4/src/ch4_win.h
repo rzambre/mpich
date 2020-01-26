@@ -294,30 +294,28 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_shared_query(MPIR_Win * win,
     goto fn_exit;
 }
 
-MPL_STATIC_INLINE_PREFIX int MPID_Win_flush(int rank, MPIR_Win * win)
+MPL_STATIC_INLINE_PREFIX int MPID_Win_flush(int rank, MPIR_Win * win, int hst_vci)
 {
-    int mpi_errno, vci;
+    int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_WIN_FLUSH);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_WIN_FLUSH);
 
-    vci = 0;
-
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(hst_vci).lock);
     MPIDI_workq_vci_progress_unsafe();
 
 #ifdef MPIDI_CH4_DIRECT_NETMOD
-    mpi_errno = MPIDI_NM_mpi_win_flush(rank, win, NULL);
+    mpi_errno = MPIDI_NM_mpi_win_flush(rank, win, NULL, hst_vci);
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
     }
 #else
-    mpi_errno = MPIDIG_mpi_win_flush(rank, win);
+    mpi_errno = MPIDIG_mpi_win_flush(rank, win, hst_vci);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 #endif
 
   fn_exit:
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(hst_vci).lock);
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_WIN_FLUSH);
     return mpi_errno;
   fn_fail:

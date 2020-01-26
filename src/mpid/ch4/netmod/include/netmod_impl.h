@@ -562,7 +562,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_put(const void *origin_addr, int origi
                                               MPI_Datatype origin_datatype, int target_rank,
                                               MPI_Aint target_disp, int target_count,
                                               MPI_Datatype target_datatype, MPIR_Win * win,
-                                              MPIDI_av_entry_t * addr, int vci)
+                                              MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci)
 {
     int ret;
 
@@ -673,7 +673,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_get(void *origin_addr, int origin_coun
                                               MPI_Datatype origin_datatype, int target_rank,
                                               MPI_Aint target_disp, int target_count,
                                               MPI_Datatype target_datatype, MPIR_Win * win,
-                                              MPIDI_av_entry_t * addr, int vci)
+                                              MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci)
 {
     int ret;
 
@@ -704,7 +704,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_accumulate(const void *origin_addr, in
                                                      MPI_Datatype origin_datatype, int target_rank,
                                                      MPI_Aint target_disp, int target_count,
                                                      MPI_Datatype target_datatype, MPI_Op op,
-                                                     MPIR_Win * win, MPIDI_av_entry_t * addr, int vci)
+                                                     MPIR_Win * win, MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci)
 {
     int ret;
 
@@ -820,7 +820,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_rget_accumulate(const void *origin_add
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr, void *result_addr,
                                                        MPI_Datatype datatype, int target_rank,
                                                        MPI_Aint target_disp, MPI_Op op,
-                                                       MPIR_Win * win, MPIDI_av_entry_t * addr, int vci)
+                                                       MPIR_Win * win, MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci)
 {
     int ret;
 

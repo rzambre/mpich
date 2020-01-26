@@ -399,7 +399,7 @@ static inline int MPIDIG_mpi_win_unlock(int rank, MPIR_Win * win)
     MPIR_Assert(slock->locked == 1);
 
     /* Ensure op completion in netmod and shmmod */
-    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win);
+    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win, 0);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 
@@ -562,13 +562,11 @@ static inline int MPIDIG_mpi_win_shared_query(MPIR_Win * win, int rank, MPI_Aint
     return mpi_errno;
 }
 
-static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
+static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win, int hst_vci)
 {
-    int vci, mpi_errno = MPI_SUCCESS;
+    int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
-
-    vci = 0;
 
     /* Check window lock epoch.
      * PROC_NULL does not update per-target epoch. */
@@ -577,7 +575,7 @@ static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
         goto fn_exit;
 
     /* Ensure op completion in netmod and shmmod */
-    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win);
+    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win, hst_vci);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 

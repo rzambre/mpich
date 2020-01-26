@@ -14,27 +14,28 @@
 #include "ofi_impl.h"
 #include <opa_primitives.h>
 
-static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win)
+static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     int itercount = 0;
     int ret, max_ofi_progress;
-    int vci;
+    int hst_vni;
     uint64_t tcount, firstcount, donecount;
     MPIDI_OFI_win_request_t *r;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_WIN_PROGRESS_FENCE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_WIN_PROGRESS_FENCE);
 
-    vci = 0;
-    tcount = *MPIDI_OFI_WIN(win).issued_cntr;
-    firstcount = donecount = fi_cntr_read(MPIDI_OFI_WIN(win).cmpl_cntr);
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+
+    tcount = MPIDI_OFI_CTX(hst_vni).rma_issued_cntr;
+    firstcount = donecount = fi_cntr_read(MPIDI_OFI_CTX(hst_vni).rma_cmpl_cntr);
 
     MPIR_Assert(donecount <= tcount);
 
     while (tcount > donecount) {
         MPIR_Assert(donecount <= tcount);
-        donecount = fi_cntr_read(MPIDI_OFI_WIN(win).cmpl_cntr);
+        donecount = fi_cntr_read(MPIDI_OFI_CTX(hst_vni).rma_cmpl_cntr);
         itercount++;
 
         if (itercount == 1000) {
@@ -49,9 +50,9 @@ static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win)
              * engine of the ofi provider to be kicked with a global
              * progress that uses `fi_cntr_read`.
              */ 
-            MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+            MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(hst_vci).lock);
             ret = MPIDI_Progress_test(MPIDI_PROGRESS_NM, MPIDI_PROGRESS_TYPE__GLOBAL, 0);
-            MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+            MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(hst_vci).lock);
             
             itercount = 0;
         }
@@ -66,7 +67,7 @@ static inline int MPIDI_OFI_win_progress_fence_unsafe(MPIR_Win * win)
     max_ofi_progress =
         (tcount - firstcount + MPIDI_OFI_NUM_CQ_ENTRIES - 1) / MPIDI_OFI_NUM_CQ_ENTRIES;
     do {
-        ret = MPIDI_OFI_progress_test(MPIDI_VCI(vci).vni);
+        ret = MPIDI_OFI_progress_test(hst_vni);
         if (ret == 0) {
             break;
         } else if (ret < 0) {
@@ -211,13 +212,13 @@ static inline int MPIDI_NM_mpi_win_shared_query(MPIR_Win * win,
     return mpi_errno;
 }
 
-static inline int MPIDI_NM_mpi_win_flush(int rank, MPIR_Win * win, MPIDI_av_entry_t * addr)
+static inline int MPIDI_NM_mpi_win_flush(int rank, MPIR_Win * win, MPIDI_av_entry_t * addr, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_WIN_FLUSH);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_WIN_FLUSH);
 
-    mpi_errno = MPIDIG_mpi_win_flush(rank, win);
+    mpi_errno = MPIDIG_mpi_win_flush(rank, win, hst_vci);
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_WIN_FLUSH);
     return mpi_errno;
@@ -306,7 +307,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_win_cmpl_hook(MPIR_Win * win)
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_RMA_WIN_CMPL_HOOK);
     if (MPIDI_OFI_ENABLE_RMA) {
         /* network completion */
-        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win));
+        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win, 0));
     }
 
   fn_exit:
@@ -323,7 +324,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_win_local_cmpl_hook(MPIR_Win * win)
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_RMA_WIN_LOCAL_CMPL_HOOK);
     if (MPIDI_OFI_ENABLE_RMA) {
         /* network completion */
-        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win));
+        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win, 0));
     }
 
   fn_exit:
@@ -334,14 +335,14 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_win_local_cmpl_hook(MPIR_Win * win)
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_target_cmpl_hook(int rank ATTRIBUTE((unused)),
-                                                           MPIR_Win * win)
+                                                           MPIR_Win * win, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_RMA_TARGET_CMPL_HOOK);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_RMA_TARGET_CMPL_HOOK);
     if (MPIDI_OFI_ENABLE_RMA) {
         /* network completion */
-        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win));
+        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win, hst_vci));
     }
 
   fn_exit:
@@ -359,7 +360,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_target_local_cmpl_hook(int rank ATTRIB
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_RMA_TARGET_LOCAL_CMPL_HOOK);
     if (MPIDI_OFI_ENABLE_RMA) {
         /* network completion */
-        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win));
+        MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_win_progress_fence_unsafe(win, 0));
     }
 
   fn_exit:

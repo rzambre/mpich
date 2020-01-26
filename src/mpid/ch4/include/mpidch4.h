@@ -92,12 +92,12 @@ MPIDI_CH4I_API(int, Rsend_init, const void *, int, MPI_Datatype, int, int, MPIR_
                MPIR_Request **);
 MPIDI_CH4I_API(int, Startall, int, MPIR_Request *[]);
 MPIDI_CH4I_API(int, Accumulate, const void *, int, MPI_Datatype, int, MPI_Aint, int, MPI_Datatype,
-               MPI_Op, MPIR_Win *);
+               MPI_Op, MPIR_Win *, int, int);
 MPIDI_CH4I_API_NOINLINE(int, Win_create, void *, MPI_Aint, int, MPIR_Info *, MPIR_Comm *,
                         MPIR_Win **);
 MPIDI_CH4I_API(int, Win_fence, int, MPIR_Win *);
 MPIDI_CH4I_API_NOINLINE(int, Win_free, MPIR_Win **);
-MPIDI_CH4I_API(int, Get, void *, int, MPI_Datatype, int, MPI_Aint, int, MPI_Datatype, MPIR_Win *);
+MPIDI_CH4I_API(int, Get, void *, int, MPI_Datatype, int, MPI_Aint, int, MPI_Datatype, MPIR_Win *, int, int);
 MPIDI_CH4I_API_NOINLINE(int, Win_get_info, MPIR_Win *, MPIR_Info **);
 MPIDI_CH4I_API(int, Win_lock, int, int, int, MPIR_Win *);
 MPIDI_CH4I_API(int, Win_unlock, int, MPIR_Win *);
@@ -107,7 +107,7 @@ MPIDI_CH4I_API(int, Win_post, MPIR_Group *, int, MPIR_Win *);
 MPIDI_CH4I_API(int, Win_wait, MPIR_Win *);
 MPIDI_CH4I_API(int, Win_test, MPIR_Win *, int *);
 MPIDI_CH4I_API(int, Put, const void *, int, MPI_Datatype, int, MPI_Aint, int, MPI_Datatype,
-               MPIR_Win *);
+               MPIR_Win *, int, int);
 MPIDI_CH4I_API_NOINLINE(int, Win_set_info, MPIR_Win *, MPIR_Info *);
 MPIDI_CH4I_API_NOINLINE(int, Comm_reenable_anysource, MPIR_Comm *, MPIR_Group **);
 MPIDI_CH4I_API_NOINLINE(int, Comm_remote_group_failed, MPIR_Comm *, MPIR_Group **);
@@ -126,11 +126,11 @@ MPIDI_CH4I_API(int, Raccumulate, const void *, int, MPI_Datatype, int, MPI_Aint,
 MPIDI_CH4I_API(int, Rget_accumulate, const void *, int, MPI_Datatype, void *, int, MPI_Datatype,
                int, MPI_Aint, int, MPI_Datatype, MPI_Op, MPIR_Win *, MPIR_Request **);
 MPIDI_CH4I_API(int, Fetch_and_op, const void *, void *, MPI_Datatype, int, MPI_Aint, MPI_Op,
-               MPIR_Win *);
+               MPIR_Win *, int, int);
 MPIDI_CH4I_API(int, Win_shared_query, MPIR_Win *, int, MPI_Aint *, int *, void *);
 MPIDI_CH4I_API_NOINLINE(int, Win_allocate, MPI_Aint, int, MPIR_Info *, MPIR_Comm *, void *,
                         MPIR_Win **);
-MPIDI_CH4I_API(int, Win_flush, int, MPIR_Win *);
+MPIDI_CH4I_API(int, Win_flush, int, MPIR_Win *, int);
 MPIDI_CH4I_API(int, Win_flush_local_all, MPIR_Win *);
 MPIDI_CH4I_API(int, Win_unlock_all, MPIR_Win *);
 MPIDI_CH4I_API_NOINLINE(int, Win_create_dynamic, MPIR_Info *, MPIR_Comm *, MPIR_Win **);

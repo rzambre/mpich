@@ -17,7 +17,7 @@
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Fetch_and_op(const void *origin_addr, void *result_addr,
                      MPI_Datatype datatype, int target_rank, MPI_Aint target_disp,
-                     MPI_Op op, MPI_Win win)
+                     MPI_Op op, MPI_Win win, int hst_vci, int rmt_vci)
     __attribute__ ((weak, alias("PMPI_Fetch_and_op")));
 #endif
 /* -- End Profiling Symbol Block */
@@ -76,7 +76,7 @@ datatype argument must be a predefined datatype.
 @*/
 int MPI_Fetch_and_op(const void *origin_addr, void *result_addr,
                      MPI_Datatype datatype, int target_rank, MPI_Aint target_disp,
-                     MPI_Op op, MPI_Win win)
+                     MPI_Op op, MPI_Win win, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Win *win_ptr = NULL;
@@ -145,7 +145,7 @@ int MPI_Fetch_and_op(const void *origin_addr, void *result_addr,
     /* ... body of routine ...  */
 
     mpi_errno = MPID_Fetch_and_op(origin_addr,
-                                  result_addr, datatype, target_rank, target_disp, op, win_ptr);
+                                  result_addr, datatype, target_rank, target_disp, op, win_ptr, hst_vci, rmt_vci);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
 

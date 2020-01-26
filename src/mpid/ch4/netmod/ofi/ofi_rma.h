@@ -17,7 +17,7 @@
 #define MPIDI_OFI_QUERY_FETCH_ATOMIC_COUNT   1
 #define MPIDI_OFI_QUERY_COMPARE_ATOMIC_COUNT 2
 
-#define MPIDI_OFI_INIT_CHUNK_CONTEXT(win,sigreq)                        \
+#define MPIDI_OFI_INIT_CHUNK_CONTEXT(win,sigreq,vni)                        \
     do {                                                                \
     if (sigreq) {                                                        \
         int tmp;                                                        \
@@ -28,7 +28,7 @@
         creq->parent   = *sigreq;                                       \
         msg.context    = &creq->context;                                \
     }                                                                   \
-    MPIDI_OFI_win_cntr_incr(win);                                       \
+    MPIDI_OFI_win_cntr_incr(win,vni);                                       \
     } while (0)
 
 #define MPIDI_OFI_INIT_SIGNAL_REQUEST(win,sigreq,flags)                 \
@@ -219,7 +219,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_put_get(MPIR_Win * w
         (struct fi_rma_iov *) ((char *) req->noncontig->iov.put_get.originv
                                + MPIDI_OFI_align_iov_len(o_size * alloc_iovs));
     MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, flags);
-    *ep = MPIDI_OFI_WIN(win).ep;
+    *ep = MPIDI_OFI_CTX(MPIDI_VCI(vci).vni).tx;
     req->target_rank = target_rank;
 
   fn_exit:
@@ -282,7 +282,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_accumulate(MPIR_Win 
         (struct fi_rma_ioc *) ((char *) req->noncontig->iov.accumulate.originv
                                + MPIDI_OFI_align_iov_len(o_size * alloc_iovs));
     MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, flags);
-    *ep = MPIDI_OFI_WIN(win).ep;
+    *ep = MPIDI_OFI_CTX(MPIDI_VCI(vci).vni).tx;
     req->target_rank = target_rank;
 
   fn_exit:
@@ -376,7 +376,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
                                    MPI_Aint target_disp,
                                    int target_count,
                                    MPI_Datatype target_datatype,
-                                   MPIR_Win * win, MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int vci)
+                                   MPIR_Win * win, MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int hst_vci, int rmt_vci)
 {
     int rc, mpi_errno = MPI_SUCCESS;
     MPIDI_OFI_win_request_t *req = NULL;
@@ -422,12 +422,13 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         goto null_op_exit;
     }
 
-    /* For now, VNI i communicates with only VNI i of every other rank */
-    hst_vni = MPIDI_VCI(vci).vni;
-    rmt_vni = hst_vni;
+    /* For now, all ranks participate during communicator creation. So remote VCI's 
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     if (origin_contig && target_contig && (origin_bytes <= MPIDI_OFI_global.max_buffered_write)) {
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
-                              fi_inject_write(MPIDI_OFI_WIN(win).ep,
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win, hst_vni),
+                              fi_inject_write(MPIDI_OFI_CTX(hst_vni).tx,
                                               (char *) origin_addr + origin_true_lb, target_bytes,
                                               MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni),
                                               (uint64_t) MPIDI_OFI_winfo_base(win, target_rank)
@@ -435,7 +436,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
                                                                                         target_rank)
                                               + target_true_lb, MPIDI_OFI_winfo_mr_key(win,
                                                                                        target_rank)),
-                              rdma_inject_write, vci);
+                              rdma_inject_write, hst_vci);
         goto null_op_exit;
     } else if (origin_contig && target_contig) {
         MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, &flags);
@@ -453,8 +454,8 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         riov.addr = (uint64_t) (MPIDI_OFI_winfo_base(win, target_rank) + offset + target_true_lb);
         riov.len = target_bytes;
         riov.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_writemsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write, vci);
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, hst_vni),
+                              fi_writemsg(MPIDI_OFI_CTX(hst_vni).tx, &msg, flags), rdma_write, hst_vci);
         goto fn_exit;
     }
 
@@ -467,7 +468,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
                                                                   origin_bytes,
                                                                   target_bytes,
                                                                   MPIDI_OFI_global.max_msg_size,
-                                                                  &req, &flags, &ep, sigreq, vci));
+                                                                  &req, &flags, &ep, sigreq, hst_vci));
 
     offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
 
@@ -509,8 +510,8 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
         msg.iov_count = oout;
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_writemsg(ep, &msg, flags), rdma_write, vci);
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, hst_vni),
+                              fi_writemsg(ep, &msg, flags), rdma_write, hst_vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -534,7 +535,7 @@ static inline int MPIDI_NM_mpi_put(const void *origin_addr,
                                    int target_rank,
                                    MPI_Aint target_disp,
                                    int target_count, MPI_Datatype target_datatype, MPIR_Win * win,
-                                   MPIDI_av_entry_t * av, int vci)
+                                   MPIDI_av_entry_t * av, int hst_vci, int rmt_vci)
 {
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_PUT);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_PUT);
@@ -550,7 +551,7 @@ static inline int MPIDI_NM_mpi_put(const void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, NULL, vci);
+                                 target_disp, target_count, target_datatype, win, av, NULL, hst_vci, rmt_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_PUT);
@@ -564,7 +565,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
                                    MPI_Aint target_disp,
                                    int target_count,
                                    MPI_Datatype target_datatype,
-                                   MPIR_Win * win, MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int vci)
+                                   MPIR_Win * win, MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int hst_vci, int rmt_vci)
 {
     int rc, mpi_errno = MPI_SUCCESS;
     MPIDI_OFI_win_request_t *req = NULL;
@@ -608,10 +609,11 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
                                    target_datatype, origin_addr, origin_count, origin_datatype);
         goto null_op_exit;
     }
-
-    /* For now, VNI i communicates with only VNI i of every other rank */
-    hst_vni = MPIDI_VCI(vci).vni;
-    rmt_vni = hst_vni;
+    
+    /* For now, all ranks participate during communicator creation. So remote VCI's 
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     if (origin_contig && target_contig) {
         offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
         MPIDI_OFI_INIT_SIGNAL_REQUEST(win, sigreq, &flags);
@@ -630,8 +632,8 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
         riov.addr = (uint64_t) (MPIDI_OFI_winfo_base(win, target_rank) + offset + target_true_lb);
         riov.len = target_bytes;
         riov.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_readmsg(MPIDI_OFI_WIN(win).ep, &msg, flags), rdma_write, vci);
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, hst_vni),
+                              fi_readmsg(MPIDI_OFI_CTX(hst_vni).tx, &msg, flags), rdma_write, hst_vci);
         goto fn_exit;
     }
 
@@ -640,7 +642,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
                                                                   origin_datatype, target_datatype,
                                                                   origin_bytes, target_bytes,
                                                                   MPIDI_OFI_global.max_msg_size,
-                                                                  &req, &flags, &ep, sigreq, vci));
+                                                                  &req, &flags, &ep, sigreq, hst_vci));
 
     offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
     req->event_id = MPIDI_OFI_EVENT_ABORT;
@@ -684,8 +686,8 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
         msg.iov_count = oout;
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_readmsg(ep, &msg, flags), rdma_write, vci);
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, hst_vni),
+                              fi_readmsg(ep, &msg, flags), rdma_write, hst_vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -708,7 +710,7 @@ static inline int MPIDI_NM_mpi_get(void *origin_addr,
                                    int target_rank,
                                    MPI_Aint target_disp,
                                    int target_count, MPI_Datatype target_datatype, MPIR_Win * win,
-                                   MPIDI_av_entry_t * av, int vci)
+                                   MPIDI_av_entry_t * av, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
 
@@ -725,7 +727,7 @@ static inline int MPIDI_NM_mpi_get(void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, NULL, vci);
+                                 target_disp, target_count, target_datatype, win, av, NULL, hst_vci, rmt_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_GET);
@@ -756,7 +758,7 @@ static inline int MPIDI_NM_mpi_rput(const void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, request, 0);
+                                 target_disp, target_count, target_datatype, win, av, request, 0, 0);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RPUT);
@@ -771,6 +773,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
                                                 int target_rank, MPI_Aint target_disp,
                                                 MPIR_Win * win, MPIDI_av_entry_t * av)
 {
+    printf("Compare and swap not supported!\n");
     int mpi_errno = MPI_SUCCESS;
     enum fi_op fi_op;
     enum fi_datatype fi_dt;
@@ -838,7 +841,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
     comparev.count = 1;
     targetv.addr = (uint64_t) tbuffer;
     targetv.count = 1;
-    targetv.key = MPIDI_OFI_winfo_mr_key(win, target_rank);;
+    targetv.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
 
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&originv);
     msg.msg_iov = &originv;
@@ -853,7 +856,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
     msg.data = 0;
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&comparev);
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&resultv);
-    MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
+    MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win, 0),
                           fi_compare_atomicmsg(MPIDI_OFI_WIN(win).ep, &msg,
                                                &comparev, NULL, 1, &resultv, NULL, 1, 0), atomicto, MPIDI_VCI_ROOT);
   fn_exit:
@@ -866,7 +869,7 @@ static inline int MPIDI_NM_mpi_compare_and_swap(const void *origin_addr,
         (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAW | MPIDIG_ACCU_ORDER_WAR)) {
         /* Wait for OFI cas to complete.
          * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-        MPIDI_OFI_win_progress_fence_unsafe(win);
+        MPIDI_OFI_win_progress_fence_unsafe(win, 0);
     }
     return MPIDIG_mpi_compare_and_swap(origin_addr, compare_addr, result_addr, datatype,
                                        target_rank, target_disp, win);
@@ -880,7 +883,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
                                           int target_count,
                                           MPI_Datatype target_datatype,
                                           MPI_Op op, MPIR_Win * win,
-                                          MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int vci)
+                                          MPIDI_av_entry_t * addr, MPIR_Request ** sigreq, int hst_vci, int rmt_vci)
 {
     int rc, mpi_errno = MPI_SUCCESS;
     uint64_t flags;
@@ -932,7 +935,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
     MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_allocate_win_request_accumulate
                            (win, origin_count, target_count, target_rank, origin_datatype,
                             target_datatype, origin_bytes, target_bytes, max_size, &req, &flags,
-                            &ep, sigreq, vci));
+                            &ep, sigreq, hst_vci));
 
     req->event_id = MPIDI_OFI_EVENT_ABORT;
     req->next = MPIDI_OFI_WIN(win).syncQ;
@@ -944,10 +947,11 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
                              origin_count,
                              target_count, origin_bytes, target_bytes, max_size, origin_datatype,
                              target_datatype);
-
-    /* For now, VNI i communicates with only VNI i of every other rank */
-    hst_vni = MPIDI_VCI(vci).vni;;
-    rmt_vni = hst_vni;
+    
+    /* For now, all ranks participate during communicator creation. So remote VCI's 
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     msg.desc = NULL;
     msg.addr = MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
     msg.context = NULL;
@@ -986,8 +990,8 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
         msg.iov_count = oout;
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
-                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto, vci);
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, hst_vni),
+                              fi_atomicmsg(ep, &msg, flags), rdma_atomicto, hst_vci);
     }
 
     MPIDI_OFI_finalize_seg_state(p);
@@ -1003,7 +1007,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
         (MPIDIG_ACCU_ORDER_WAW | MPIDIG_ACCU_ORDER_WAR)) {
         /* Wait for OFI acc to complete.
          * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-        MPIDI_OFI_win_progress_fence_unsafe(win);
+        MPIDI_OFI_win_progress_fence_unsafe(win, hst_vci);
     }
     return MPIDIG_mpi_accumulate(origin_addr, origin_count, origin_datatype, target_rank,
                                  target_disp, target_count, target_datatype, op, win);
@@ -1027,6 +1031,7 @@ static inline int MPIDI_OFI_do_get_accumulate(const void *origin_addr,
                                               MPI_Op op, MPIR_Win * win,
                                               MPIDI_av_entry_t * addr, MPIR_Request ** sigreq)
 {
+    printf("Get Accumulate not supported\n");
     int rc, mpi_errno = MPI_SUCCESS;
     uint64_t flags;
     MPIDI_OFI_win_request_t *req = NULL;
@@ -1160,7 +1165,7 @@ static inline int MPIDI_OFI_do_get_accumulate(const void *origin_addr,
         msg.rma_iov = targetv;
         msg.rma_iov_count = tout;
         MPIDI_OFI_ASSERT_IOVEC_ALIGN(resultv);
-        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq),
+        MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_INIT_CHUNK_CONTEXT(win, sigreq, 0),
                               fi_fetch_atomicmsg(ep, &msg, resultv,
                                                  NULL, rout, flags), rdma_readfrom, MPIDI_VCI_ROOT);
     }
@@ -1180,12 +1185,12 @@ static inline int MPIDI_OFI_do_get_accumulate(const void *origin_addr,
         if (MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_RAW) {
             /* Wait for OFI acc to complete.
              * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-            MPIDI_OFI_win_progress_fence_unsafe(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win, 0);
         }
     } else {
         if (MPIDIG_WIN(win, info_args).accumulate_ordering &
             (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAR | MPIDIG_ACCU_ORDER_WAW)) {
-            MPIDI_OFI_win_progress_fence_unsafe(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win, 0);
         }
     }
     return MPIDIG_mpi_get_accumulate(origin_addr, origin_count, origin_datatype, result_addr,
@@ -1239,7 +1244,7 @@ static inline int MPIDI_NM_mpi_raccumulate(const void *origin_addr,
                                         origin_datatype,
                                         target_rank,
                                         target_disp,
-                                        target_count, target_datatype, op, win, av, request, MPIDI_VCI_ROOT);
+                                        target_count, target_datatype, op, win, av, request, 0, 0);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RACCUMULATE);
@@ -1295,7 +1300,7 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
                                             MPI_Datatype datatype,
                                             int target_rank,
                                             MPI_Aint target_disp, MPI_Op op, MPIR_Win * win,
-                                            MPIDI_av_entry_t * av, int vci)
+                                            MPIDI_av_entry_t * av, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     enum fi_op fi_op;
@@ -1367,10 +1372,11 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     targetv.addr = (uint64_t) tbuffer;
     targetv.count = 1;
     targetv.key = MPIDI_OFI_winfo_mr_key(win, target_rank);
-
-    /* For now, VNI i communicates with only VNI i of every other rank */
-    hst_vni = MPIDI_VCI(vci).vni;
-    rmt_vni = hst_vni;
+    
+    /* For now, all ranks participate during communicator creation. So remote VCI's 
+     * information is the same as that on the host. */
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&originv);
     msg.msg_iov = &originv;
     msg.desc = NULL;
@@ -1383,9 +1389,9 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
     msg.context = NULL;
     msg.data = 0;
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(&resultv);
-    MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win),
-                          fi_fetch_atomicmsg(MPIDI_OFI_WIN(win).ep, &msg, &resultv,
-                                             NULL, 1, 0), rdma_readfrom, vci);
+    MPIDI_OFI_CALL_RETRY2(MPIDI_OFI_win_cntr_incr(win, hst_vni),
+                          fi_fetch_atomicmsg(MPIDI_OFI_CTX(hst_vni).tx, &msg, &resultv,
+                                             NULL, 1, 0), rdma_readfrom, hst_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_FETCH_AND_OP);
@@ -1398,12 +1404,12 @@ static inline int MPIDI_NM_mpi_fetch_and_op(const void *origin_addr,
         if (MPIDIG_WIN(win, info_args).accumulate_ordering & MPIDIG_ACCU_ORDER_RAW) {
             /* Wait for OFI fetch_and_op to complete.
              * For now, there is no FI flag to track atomic only ops, we use RMA level cntr. */
-            MPIDI_OFI_win_progress_fence_unsafe(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win, hst_vci);
         }
     } else {
         if (MPIDIG_WIN(win, info_args).accumulate_ordering &
             (MPIDIG_ACCU_ORDER_RAW | MPIDIG_ACCU_ORDER_WAR | MPIDIG_ACCU_ORDER_WAW)) {
-            MPIDI_OFI_win_progress_fence_unsafe(win);
+            MPIDI_OFI_win_progress_fence_unsafe(win, hst_vci);
         }
     }
     return MPIDIG_mpi_fetch_and_op(origin_addr, result_addr, datatype, target_rank, target_disp, op,
@@ -1434,7 +1440,7 @@ static inline int MPIDI_NM_mpi_rget(void *origin_addr,
                                  origin_count,
                                  origin_datatype,
                                  target_rank,
-                                 target_disp, target_count, target_datatype, win, av, request, 0);
+                                 target_disp, target_count, target_datatype, win, av, request, 0, 0);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RGET);
@@ -1492,7 +1498,7 @@ static inline int MPIDI_NM_mpi_accumulate(const void *origin_addr,
                                           MPI_Aint target_disp,
                                           int target_count,
                                           MPI_Datatype target_datatype, MPI_Op op, MPIR_Win * win,
-                                          MPIDI_av_entry_t * av, int vci)
+                                          MPIDI_av_entry_t * av, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ACCUMULATE);
@@ -1519,7 +1525,7 @@ static inline int MPIDI_NM_mpi_accumulate(const void *origin_addr,
                                         origin_datatype,
                                         target_rank,
                                         target_disp, target_count, target_datatype, op, win, av,
-                                        NULL, vci);
+                                        NULL, hst_vci, rmt_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ACCUMULATE);
