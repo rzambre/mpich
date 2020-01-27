@@ -491,16 +491,6 @@ typedef struct {
     } irreg;
 } MPIDI_rank_map_t;
 
-    /* VCI hash */
-typedef struct MPIDI_vci_hash {
-    union {
-        struct {
-            int vci;
-        } single;
-        /* TODO: struct multi */
-    } u;
-} MPIDI_vci_hash_t;
-
 typedef struct MPIDI_Devcomm_t {
     struct {
         /* The first fields are used by the AM(MPIDIG) apis */
@@ -517,13 +507,10 @@ typedef struct MPIDI_Devcomm_t {
 
         MPIDI_rank_map_t map;
         MPIDI_rank_map_t local_map;
-
-        MPIDI_vci_hash_t vci_hash;
     } ch4;
 } MPIDI_Devcomm_t;
 #define MPIDIG_COMM(comm,field) ((comm)->dev.ch4.am).field
 #define MPIDI_COMM(comm,field) ((comm)->dev.ch4).field
-#define MPIDI_COMM_VCI(comm) ((comm)->dev.ch4).vci_hash.u.single.vci
 
 typedef struct {
     union {
@@ -587,7 +574,6 @@ typedef struct MPIDI_vci {
 
  /* VCI pool */
 typedef struct MPIDI_vci_pool {
-    int next_free_vci;
     int max_vcis;
     MPID_Thread_mutex_t lock;   /* lock to protect the VCI pool */
     MPIDI_vci_t *vci;           /* array of VCIs */

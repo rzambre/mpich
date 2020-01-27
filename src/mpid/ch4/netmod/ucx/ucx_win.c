@@ -101,7 +101,7 @@ static int win_allgather(MPIR_Win * win, size_t length, uint32_t disp_unit, void
      * and remote windows (at least now). If win_create is used, the key cannot be unpackt -
      * then we need our fallback-solution */
 
-    vni = MPIDI_VCI(MPIDI_COMM_VCI(comm_ptr)).vni;
+    vni = MPIDI_VCI(0).vni;
     for (i = 0; i < comm_ptr->local_size; i++) {
         /* Skip zero-size remote region. */
         if (rkey_sizes[i] == 0) {

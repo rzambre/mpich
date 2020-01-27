@@ -16,7 +16,7 @@
 #pragma _CRI duplicate MPI_Isend as PMPI_Isend
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-              MPI_Comm comm, MPI_Request * request) __attribute__ ((weak, alias("PMPI_Isend")));
+              MPI_Comm comm, MPI_Request * request, int hst_vci, int rmt_vci) __attribute__ ((weak, alias("PMPI_Isend")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -55,7 +55,7 @@ Output Parameters:
 
 @*/
 int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
-              MPI_Comm comm, MPI_Request * request)
+              MPI_Comm comm, MPI_Request * request, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Comm *comm_ptr = NULL;
@@ -121,7 +121,7 @@ int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int t
     /* ... body of routine ...  */
 
     mpi_errno = MPID_Isend(buf, count, datatype, dest, tag, comm_ptr,
-                           MPIR_CONTEXT_INTRA_PT2PT, &request_ptr);
+                           MPIR_CONTEXT_INTRA_PT2PT, &request_ptr, hst_vci, rmt_vci);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
 

@@ -32,7 +32,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_startall(int count, MPIR_Request * reque
                                        MPIDIG_REQUEST(preq, datatype), MPIDIG_REQUEST(preq, rank),
                                        MPIDIG_REQUEST(preq, tag), preq->comm,
                                        MPIDIG_request_get_context_offset(preq),
-                                       &preq->u.persist.real_request);
+                                       &preq->u.persist.real_request, 0, 0);
                 break;
 
             case MPIDI_PTYPE_SEND:
@@ -40,7 +40,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDIG_mpi_startall(int count, MPIR_Request * reque
                                        MPIDIG_REQUEST(preq, datatype), MPIDIG_REQUEST(preq, rank),
                                        MPIDIG_REQUEST(preq, tag), preq->comm,
                                        MPIDIG_request_get_context_offset(preq),
-                                       &preq->u.persist.real_request);
+                                       &preq->u.persist.real_request, 0, 0);
                 break;
 
             case MPIDI_PTYPE_SSEND:

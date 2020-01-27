@@ -127,7 +127,7 @@ int MPIC_Send(const void *buf, MPI_Aint count, MPI_Datatype datatype, int dest, 
     context_id = (comm_ptr->comm_kind == MPIR_COMM_KIND__INTRACOMM) ?
         MPIR_CONTEXT_INTRA_COLL : MPIR_CONTEXT_INTER_COLL;
 
-    mpi_errno = MPID_Send(buf, count, datatype, dest, tag, comm_ptr, context_id, &request_ptr);
+    mpi_errno = MPID_Send(buf, count, datatype, dest, tag, comm_ptr, context_id, &request_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
     if (request_ptr) {
@@ -181,7 +181,7 @@ int MPIC_Recv(void *buf, MPI_Aint count, MPI_Datatype datatype, int source, int 
         status = &mystatus;
 
     mpi_errno = MPID_Recv(buf, count, datatype, source, tag, comm_ptr,
-                          context_id, status, &request_ptr);
+                          context_id, status, &request_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
     if (request_ptr) {
@@ -311,11 +311,11 @@ int MPIC_Sendrecv(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype sendtype
     }
 
     mpi_errno = MPID_Irecv(recvbuf, recvcount, recvtype, source, recvtag,
-                           comm_ptr, context_id, &recv_req_ptr);
+                           comm_ptr, context_id, &recv_req_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
     mpi_errno = MPID_Isend(sendbuf, sendcount, sendtype, dest, sendtag,
-                           comm_ptr, context_id, &send_req_ptr);
+                           comm_ptr, context_id, &send_req_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
@@ -406,12 +406,12 @@ int MPIC_Sendrecv_replace(void *buf, MPI_Aint count, MPI_Datatype datatype,
     }
 
     mpi_errno = MPID_Irecv(buf, count, datatype, source, recvtag,
-                           comm_ptr, context_id_offset, &rreq);
+                           comm_ptr, context_id_offset, &rreq, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
     mpi_errno = MPID_Isend(tmpbuf, tmpbuf_count, MPI_PACKED, dest,
-                           sendtag, comm_ptr, context_id_offset, &sreq);
+                           sendtag, comm_ptr, context_id_offset, &sreq, 0, 0);
     if (mpi_errno != MPI_SUCCESS) {
         /* --BEGIN ERROR HANDLING-- */
         /* FIXME: should we cancel the pending (possibly completed) receive
@@ -483,7 +483,7 @@ int MPIC_Isend(const void *buf, MPI_Aint count, MPI_Datatype datatype, int dest,
     context_id = (comm_ptr->comm_kind == MPIR_COMM_KIND__INTRACOMM) ?
         MPIR_CONTEXT_INTRA_COLL : MPIR_CONTEXT_INTER_COLL;
 
-    mpi_errno = MPID_Isend(buf, count, datatype, dest, tag, comm_ptr, context_id, request_ptr);
+    mpi_errno = MPID_Isend(buf, count, datatype, dest, tag, comm_ptr, context_id, request_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 
@@ -551,7 +551,7 @@ int MPIC_Irecv(void *buf, MPI_Aint count, MPI_Datatype datatype, int source,
     context_id = (comm_ptr->comm_kind == MPIR_COMM_KIND__INTRACOMM) ?
         MPIR_CONTEXT_INTRA_COLL : MPIR_CONTEXT_INTER_COLL;
 
-    mpi_errno = MPID_Irecv(buf, count, datatype, source, tag, comm_ptr, context_id, request_ptr);
+    mpi_errno = MPID_Irecv(buf, count, datatype, source, tag, comm_ptr, context_id, request_ptr, 0, 0);
     if (mpi_errno)
         MPIR_ERR_POP(mpi_errno);
 

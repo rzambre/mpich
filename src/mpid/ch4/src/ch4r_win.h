@@ -563,11 +563,9 @@ static inline int MPIDIG_mpi_win_shared_query(MPIR_Win * win, int rank, MPI_Aint
 
 static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
 {
-    int vci, mpi_errno = MPI_SUCCESS;
+    int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
-
-    /* vci = MPIDI_COMM_VCI(win->comm_ptr); */
 
     /* Check window lock epoch.
      * PROC_NULL does not update per-target epoch. */
