@@ -399,7 +399,7 @@ static inline int MPIDIG_mpi_win_unlock(int rank, MPIR_Win * win)
     MPIR_Assert(slock->locked == 1);
 
     /* Ensure op completion in netmod and shmmod */
-    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win);
+    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win, 0);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 
@@ -561,7 +561,7 @@ static inline int MPIDIG_mpi_win_shared_query(MPIR_Win * win, int rank, MPI_Aint
     return mpi_errno;
 }
 
-static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
+static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
@@ -574,7 +574,7 @@ static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
         goto fn_exit;
 
     /* Ensure op completion in netmod and shmmod */
-    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win);
+    mpi_errno = MPIDI_NM_rma_target_cmpl_hook(rank, win, hst_vci);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 
@@ -588,18 +588,19 @@ static inline int MPIDIG_mpi_win_flush(int rank, MPIR_Win * win)
      * If target object is not created (e.g., when all operations issued
      * to the target were via shm and in lockall), we also need trigger
      * progress once to handle remote AM. */
-    MPIDIG_win_target_t *target_ptr = MPIDIG_win_target_find(win, rank);
+    /*MPIDIG_win_target_t *target_ptr = MPIDIG_win_target_find(win, rank);
     if (target_ptr) {
         if (MPIDIG_WIN(win, sync).access_epoch_type == MPIDIG_EPOTYPE_LOCK)
             MPIDIG_EPOCH_CHECK_TARGET_LOCK(target_ptr, mpi_errno, goto fn_fail);
-    }
+    }*/
 
+    /*
     do {
-        /*MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
         MPIDIU_PROGRESS();
         MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
-        */
     } while (target_ptr && MPIR_cc_get(target_ptr->remote_cmpl_cnts) != 0);
+    */
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_WIN_FLUSH);
@@ -805,16 +806,17 @@ static inline int MPIDIG_mpi_win_flush_all(MPIR_Win * win)
 #endif
 
     /* Ensure completion of AM operations */
+    /*
     do {
-        /*MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
         MPIDIU_PROGRESS();
         MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
-        */
+        
         /* FIXME: now we simply set per-target counters for lockall in case
          * user flushes per target, but this should be optimized. */
-        MPIDIG_win_check_all_targets_remote_completed(win, &all_remote_completed);
+        /*MPIDIG_win_check_all_targets_remote_completed(win, &all_remote_completed);
     } while (all_remote_completed != 1);
-
+    */
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDIG_MPI_WIN_FLUSH_ALL);
     return mpi_errno;

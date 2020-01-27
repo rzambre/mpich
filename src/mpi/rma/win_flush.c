@@ -15,7 +15,7 @@
 #elif defined(HAVE_PRAGMA_CRI_DUP)
 #pragma _CRI duplicate MPI_Win_flush as PMPI_Win_flush
 #elif defined(HAVE_WEAK_ATTRIBUTE)
-int MPI_Win_flush(int rank, MPI_Win win) __attribute__ ((weak, alias("PMPI_Win_flush")));
+int MPI_Win_flush(int rank, MPI_Win win, int hst_vci) __attribute__ ((weak, alias("PMPI_Win_flush")));
 #endif
 /* -- End Profiling Symbol Block */
 
@@ -51,7 +51,7 @@ Input Parameters:
 
 .seealso: MPI_Win_flush_all MPI_Win_flush_local MPI_Win_flush_local_all MPI_Win_lock MPI_Win_lock_all
 @*/
-int MPI_Win_flush(int rank, MPI_Win win)
+int MPI_Win_flush(int rank, MPI_Win win, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Win *win_ptr = NULL;
@@ -100,7 +100,7 @@ int MPI_Win_flush(int rank, MPI_Win win)
 
     /* ... body of routine ...  */
 
-    mpi_errno = MPID_Win_flush(rank, win_ptr);
+    mpi_errno = MPID_Win_flush(rank, win_ptr, hst_vci);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
 

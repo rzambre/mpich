@@ -40,7 +40,7 @@ static int win_allgather(MPIR_Win * win, size_t length, uint32_t disp_unit, void
 
     MPIDI_UCX_WIN(win).info_table =
         MPL_malloc(sizeof(MPIDI_UCX_win_info_t) * comm_ptr->local_size, MPL_MEM_OTHER);
-
+     
     /* Only non-zero region maps to device. */
     rkey_size = 0;
     if (length > 0) {
@@ -101,21 +101,25 @@ static int win_allgather(MPIR_Win * win, size_t length, uint32_t disp_unit, void
      * and remote windows (at least now). If win_create is used, the key cannot be unpackt -
      * then we need our fallback-solution */
 
-    vni = MPIDI_VCI(0).vni;
     for (i = 0; i < comm_ptr->local_size; i++) {
-        /* Skip zero-size remote region. */
-        if (rkey_sizes[i] == 0) {
-            MPIDI_UCX_WIN_INFO(win, i).rkey = NULL;
-            continue;
-        }
+        MPIDI_UCX_WIN_INFO(win, i).rkey = 
+            MPL_malloc(sizeof(ucp_rkey_h) * MPIDI_UCX_VNI_POOL(total_vnis), MPL_MEM_OTHER);
+        
+        for (vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
+            /* Skip zero-size remote region. */
+            if (rkey_sizes[i] == 0) {
+                MPIDI_UCX_WIN_INFO(win, i).rkey[vni] = NULL;
+                continue;
+            }
 
-        status = ucp_ep_rkey_unpack(MPIDI_UCX_COMM_TO_EP(comm_ptr, i, vni),
-                                    &rkey_recv_buff[recv_disps[i]],
-                                    &(MPIDI_UCX_WIN_INFO(win, i).rkey));
-        if (status == UCS_ERR_UNREACHABLE) {
-            MPIDI_UCX_WIN_INFO(win, i).rkey = NULL;
-        } else
-            MPIDI_UCX_CHK_STATUS(status);
+            status = ucp_ep_rkey_unpack(MPIDI_UCX_COMM_TO_EP(comm_ptr, i, vni),
+                                        &rkey_recv_buff[recv_disps[i]],
+                                        &(MPIDI_UCX_WIN_INFO(win, i).rkey[vni]));
+            if (status == UCS_ERR_UNREACHABLE) {
+                MPIDI_UCX_WIN_INFO(win, i).rkey[vni] = NULL;
+            } else
+                MPIDI_UCX_CHK_STATUS(status);
+        }
     }
     share_data = MPL_malloc(comm_ptr->local_size * sizeof(struct ucx_share), MPL_MEM_OTHER);
 
@@ -286,7 +290,7 @@ int MPIDI_UCX_mpi_win_detach_hook(MPIR_Win * win, const void *base)
 
 int MPIDI_UCX_mpi_win_free_hook(MPIR_Win * win)
 {
-    int mpi_errno = MPI_SUCCESS;
+    int vni, mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_NETMOD_UCX_WIN_FREE_HOOK);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_NETMOD_UCX_WIN_FREE_HOOK);
 
@@ -294,9 +298,12 @@ int MPIDI_UCX_mpi_win_free_hook(MPIR_Win * win)
     if (MPIDI_UCX_is_reachable_win(win)) {
         int i;
         for (i = 0; i < win->comm_ptr->local_size; i++) {
-            if (MPIDI_UCX_WIN_INFO(win, i).rkey) {
-                ucp_rkey_destroy(MPIDI_UCX_WIN_INFO(win, i).rkey);
+            for (vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
+                if (MPIDI_UCX_WIN_INFO(win, i).rkey[vni]) {
+                    ucp_rkey_destroy(MPIDI_UCX_WIN_INFO(win, i).rkey[vni]);
+                }
             }
+            MPL_free(MPIDI_UCX_WIN_INFO(win, i).rkey);
         }
 
         if (win->size > 0)

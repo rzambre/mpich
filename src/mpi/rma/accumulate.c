@@ -17,7 +17,7 @@
 #elif defined(HAVE_WEAK_ATTRIBUTE)
 int MPI_Accumulate(const void *origin_addr, int origin_count, MPI_Datatype origin_datatype,
                    int target_rank, MPI_Aint target_disp, int target_count,
-                   MPI_Datatype target_datatype, MPI_Op op, MPI_Win win)
+                   MPI_Datatype target_datatype, MPI_Op op, MPI_Win win, int hst_vci, int rmt_vci)
     __attribute__ ((weak, alias("PMPI_Accumulate")));
 #endif
 /* -- End Profiling Symbol Block */
@@ -65,7 +65,7 @@ predefined datatype (e.g., all 'MPI_INT' or all 'MPI_DOUBLE_PRECISION').
 int MPI_Accumulate(const void *origin_addr, int origin_count, MPI_Datatype
                    origin_datatype, int target_rank, MPI_Aint
                    target_disp, int target_count, MPI_Datatype
-                   target_datatype, MPI_Op op, MPI_Win win)
+                   target_datatype, MPI_Op op, MPI_Win win, int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Win *win_ptr = NULL;
@@ -147,7 +147,7 @@ int MPI_Accumulate(const void *origin_addr, int origin_count, MPI_Datatype
     mpi_errno = MPID_Accumulate(origin_addr, origin_count,
                                 origin_datatype,
                                 target_rank, target_disp, target_count,
-                                target_datatype, op, win_ptr);
+                                target_datatype, op, win_ptr, hst_vci, rmt_vci);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
 

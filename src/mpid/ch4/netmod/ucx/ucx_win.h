@@ -91,9 +91,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_win_shared_query(MPIR_Win * win,
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_win_flush(int rank, MPIR_Win * win,
-                                                    MPIDI_av_entry_t * addr)
+                                                    MPIDI_av_entry_t * addr, int hst_vci)
 {
-    return MPIDIG_mpi_win_flush(rank, win);
+    return MPIDIG_mpi_win_flush(rank, win, hst_vci);
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_win_flush_local_all(MPIR_Win * win)
@@ -178,25 +178,26 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_win_local_cmpl_hook(MPIR_Win * win)
     goto fn_exit;
 }
 
-MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_target_cmpl_hook(int rank, MPIR_Win * win)
+MPL_STATIC_INLINE_PREFIX int MPIDI_NM_rma_target_cmpl_hook(int rank, MPIR_Win * win, int hst_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_NETMOD_UCX_TARGET_CMPL_HOOK);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_NETMOD_UCX_TARGET_CMPL_HOOK);
 
 #ifndef MPICH_UCX_AM_ONLY
-    if (MPIDI_UCX_is_reachable_target(rank, win) &&
+    //if (MPIDI_UCX_is_reachable_target(rank, win) &&
         /* including cases where FLUSH_LOCAL or FLUSH is set */
-        MPIDI_UCX_WIN(win).target_sync[rank].need_sync >= MPIDI_UCX_WIN_SYNC_FLUSH_LOCAL) {
+    //    MPIDI_UCX_WIN(win).target_sync[rank].need_sync >= MPIDI_UCX_WIN_SYNC_FLUSH_LOCAL) {
 
         ucs_status_t ucp_status;
-        int vni = MPIDI_VCI(0).vni;
+        int vni = MPIDI_VCI(hst_vci).vni;
+        /* We restrict the user to use the same VNI on both host and remote for their communication */
         ucp_ep_h ep = MPIDI_UCX_COMM_TO_EP(win->comm_ptr, rank, vni);
         /* only flush the endpoint */
         ucp_status = ucp_ep_flush(ep);
         MPIDI_UCX_CHK_STATUS(ucp_status);
-        MPIDI_UCX_WIN(win).target_sync[rank].need_sync = MPIDI_UCX_WIN_SYNC_UNSET;
-    }
+        //MPIDI_UCX_WIN(win).target_sync[rank].need_sync = MPIDI_UCX_WIN_SYNC_UNSET;
+    //}
 #endif
 
   fn_exit:

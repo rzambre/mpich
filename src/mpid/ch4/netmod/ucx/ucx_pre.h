@@ -41,7 +41,7 @@ typedef struct MPIDI_UCX_am_header_t {
 } MPIDI_UCX_am_header_t;
 
 typedef struct MPIDI_UCX_win_info {
-    ucp_rkey_h rkey;
+    ucp_rkey_h *rkey;
     uint64_t addr;
     uint32_t disp;
 } MPIDI_UCX_win_info_t;
