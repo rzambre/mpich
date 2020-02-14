@@ -463,7 +463,7 @@ static int MPIR_Bsend_check_active(void)
              * the request (it is a grequest, the free call will do it) */
             flag = 0;
             /* XXX DJG FIXME-MT should we be checking this? */
-            if (MPIR_Object_get_ref(active->request) == 1) {
+            if (MPIR_Request_get_ref(active->request) == 1) {
                 mpi_errno = MPIR_Test(&r, &flag, MPI_STATUS_IGNORE);
                 if (mpi_errno)
                     MPIR_ERR_POP(mpi_errno);

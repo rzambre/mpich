@@ -123,6 +123,33 @@ typedef struct MPIR_Grequest_class {
 
 #define MPIR_Request_is_complete(req_) (MPIR_cc_is_complete((req_)->cc_ptr))
 
+#define MPIR_REQUEST_OBJECT_HEADER                                              \
+    int handle;                                                         \
+    int ref_count  /*semicolon intentionally omitted */
+
+#define MPIR_Request_set_ref(objptr_,val)                        \
+    do {                                                        \
+        (objptr_)->ref_count = val;                             \
+        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, val, "set");        \
+    } while (0)
+
+/* must be used with care, since there is no synchronization for this read */
+#define MPIR_Request_get_ref(objptr_)            \
+    ((objptr_)->ref_count)
+
+#define MPIR_Request_add_ref(objptr_)                             \
+    do {                                                                \
+        (objptr_)->ref_count++;                                         \
+        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, (objptr_)->ref_count, "incr"); \
+        HANDLE_CHECK_REFCOUNT(objptr_,(objptr_)->ref_count,"incr");     \
+    } while (0)
+#define MPIR_Request_release_ref(objptr_,inuse_ptr)               \
+    do {                                                                \
+        *(inuse_ptr) = --((objptr_)->ref_count);                        \
+        HANDLE_LOG_REFCOUNT_CHANGE(objptr_, (objptr_)->ref_count, "decr"); \
+        HANDLE_CHECK_REFCOUNT(objptr_,(objptr_)->ref_count,"decr");     \
+    } while (0)
+
 /*S
   MPIR_Request - Description of the Request data structure
 
@@ -139,7 +166,7 @@ typedef struct MPIR_Grequest_class {
 
   S*/
 struct MPIR_Request {
-    MPIR_OBJECT_HEADER;         /* adds handle and ref_count fields */
+    MPIR_REQUEST_OBJECT_HEADER;         /* adds handle and ref_count fields */
 
     MPIR_Request_kind_t kind;
 
@@ -245,7 +272,7 @@ static inline void MPIR_Request_alloc_success(MPIR_Request * req, MPIR_Request_k
      * inheritance).  For example, do we really* want to set the
      * kind to UNDEFINED? And should the RMA values be set only
      * for RMA requests? */
-    MPIR_Object_set_ref(req, 1);
+    MPIR_Request_set_ref(req, 1);
     req->kind = kind;
     MPIR_cc_set(&req->cc, 1);
     req->cc_ptr = &req->cc;
@@ -293,12 +320,6 @@ static inline MPIR_Request *MPIR_Request_create(MPIR_Request_kind_t kind)
 
     return req;
 }
-
-#define MPIR_Request_add_ref(req_p_) \
-    do { MPIR_Object_add_ref(req_p_); } while (0)
-
-#define MPIR_Request_release_ref(req_p_, inuse_) \
-    do { MPIR_Object_release_ref(req_p_, inuse_); } while (0)
 
 MPL_STATIC_INLINE_PREFIX MPIR_Request *MPIR_Request_create_complete(MPIR_Request_kind_t kind)
 {
