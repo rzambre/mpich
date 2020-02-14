@@ -85,7 +85,7 @@ int MPIR_Grequest_start(MPI_Grequest_query_function * query_fn,
     MPIR_ERR_CHKANDJUMP1(*request_ptr == NULL, mpi_errno, MPI_ERR_OTHER, "**nomem", "**nomem %s",
                          "generalized request");
 
-    MPIR_Request_set_ref(*request_ptr, 1);
+    MPIR_Object_set_ref(*request_ptr, 1);
     (*request_ptr)->cc_ptr = &(*request_ptr)->cc;
     MPIR_cc_set((*request_ptr)->cc_ptr, 1);
     (*request_ptr)->comm = NULL;

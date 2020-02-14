@@ -239,7 +239,7 @@ static int handle_unexp_cmpl(MPIR_Request * rreq)
 
     MPIR_Datatype_release_if_not_builtin(MPIDIG_REQUEST(match_req, datatype));
     MPL_free(MPIDIG_REQUEST(rreq, buffer));
-    MPIR_Request_release_ref(rreq, &in_use);
+    MPIR_Object_release_ref(rreq, &in_use);
     MPID_Request_complete(rreq);
     MPID_Request_complete(match_req);
   fn_exit:
