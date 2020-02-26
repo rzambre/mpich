@@ -157,15 +157,12 @@ static void vci_get_free(int *free_vci)
     }
 }
 
+/* Policy: a free VCI with the lowest index is the next one to be used */
 static void vci_update_next_free()
 {
     int new_next_free_vci;
 
-    new_next_free_vci = MPIDI_VCI_POOL(next_free_vci)++;
-
-    if (new_next_free_vci >= MPIDI_VCI_POOL(max_vcis) || !MPIDI_VCI(new_next_free_vci).is_free) {
-        vci_get_free(&new_next_free_vci);
-    }
+    vci_get_free(&new_next_free_vci);
 
     MPIDI_VCI_POOL(next_free_vci) = new_next_free_vci;
 }
@@ -308,6 +305,9 @@ int MPIDI_vci_free(int vci)
 #endif
         /* Unarm this VCI */
         vci_unarm(this_vci);
+        
+        /* Update next free VCI */
+        vci_update_next_free();
     }
   fn_exit:
     MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI_POOL(lock));
