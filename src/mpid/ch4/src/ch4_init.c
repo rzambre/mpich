@@ -466,6 +466,7 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided, int *has_ar
         MPIR_ERR_POPFATAL(mpi_errno);
     }
     MPIDI_COMM_VCI(MPIR_Process.comm_world) = vci;
+    MPIDI_COMM_VCI_COUNT(MPIR_Process.comm_world) = 1;
 
     /* Allocate a shared VCI for comm_self */
     mpi_errno =
@@ -475,6 +476,7 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided, int *has_ar
         MPIR_ERR_POPFATAL(mpi_errno);
     }
     MPIDI_COMM_VCI(MPIR_Process.comm_self) = vci;
+    MPIDI_COMM_VCI_COUNT(MPIR_Process.comm_self) = 1;
 
     /* Call any and all MPID_Init type functions */
     MPIR_Err_init();

@@ -189,47 +189,127 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
         }
 
         if (MPIR_CONTEXT_READ_FIELD(SUBCOMM, comm->context_id)) {
-            /* If this is a subcommunicator, then use the VCI of the parent*/
+            /* If this is a subcommunicator, then use the VCI(s) of the parent*/
+            int parent_comm_num_vcis;
             MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI_POOL(lock));
-            MPIDI_COMM_VCI(comm) = MPIDI_COMM_VCI(comm->parent_comm);
-            MPIDI_VCI(MPIDI_COMM_VCI(comm)).ref_count++;
+
+            parent_comm_num_vcis = MPIDI_COMM_VCI_COUNT(comm->parent_comm);
+
+            if (parent_comm_num_vcis == 1) {
+                MPIDI_COMM_VCI(comm) = MPIDI_COMM_VCI(comm->parent_comm);
+                MPIDI_VCI(MPIDI_COMM_VCI(comm)).ref_count++;
+            } else {
+                int vci_i;
+                MPIDI_COMM_MULTI_VCI(comm) = MPL_malloc(parent_comm_num_vcis * sizeof(int), MPL_MEM_OTHER);
+                for (vci_i = 0; vci_i < parent_comm_num_vcis; vci_i++) {
+                    MPIDI_COMM_MULTI_VCI(comm)[vci_i] =  MPIDI_COMM_MULTI_VCI(comm->parent_comm)[vci_i];
+                    MPIDI_VCI(MPIDI_COMM_MULTI_VCI(comm->parent_comm)[vci_i]).ref_count++;
+                }
+                /* FIXME: this is a hack */
+                MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
+            }
+
+            MPIDI_COMM_VCI_COUNT(comm) = parent_comm_num_vcis;
+
             MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI_POOL(lock));
         } else {
             if (comm->hints[MPIR_COMM_HINT_NEW_VCI]) {
-                /* Otherwise, assign a VCI for this communicator and store the mapping.
-                 * Current policy: Try allocating an exclusive VCI for this communicator.
-                 * If the allocation fails, we assign the shared VCI to this communicator.
-                 * TODO: translate hints provided in the info object to the VCI properties
-                 * and resources here.
-                 */
-                vci_type = MPIDI_VCI_TYPE__EXCLUSIVE;
-                vci_resources = MPIDI_VCI_RESOURCE__GENERIC;
-                vci_properties = MPIDI_VCI_PROPERTY__GENERIC;
-                mpi_errno = MPIDI_vci_alloc(vci_type, vci_resources, vci_properties, &vci);
-                if (mpi_errno != MPI_SUCCESS) {
-                    MPIR_ERR_POP(mpi_errno);
-                }
-                if (vci == MPIDI_VCI_INVALID) {
-                    /* Fallback to allocating a shared VCI */
-                    mpi_errno =
-                        MPIDI_vci_alloc(MPIDI_VCI_TYPE__SHARED, MPIDI_VCI_RESOURCE__GENERIC,
-                                        MPIDI_VCI_PROPERTY__GENERIC, &vci);
+                int num_vcis;
+
+                num_vcis = comm->hints[MPIR_COMM_HINT_NUM_VCIS];
+                
+                if (num_vcis == 1) {
+                    /* Assign a VCI for this communicator and store the mapping.
+                     * Current policy: Try allocating an exclusive VCI for this communicator.
+                     * If the allocation fails, we assign the shared VCI to this communicator.
+                     * TODO: translate hints provided in the info object to the VCI properties
+                     * and resources here.
+                     */
+                    vci_type = MPIDI_VCI_TYPE__EXCLUSIVE;
+                    vci_resources = MPIDI_VCI_RESOURCE__GENERIC;
+                    vci_properties = MPIDI_VCI_PROPERTY__GENERIC;
+                    mpi_errno = MPIDI_vci_alloc(vci_type, vci_resources, vci_properties, &vci);
                     if (mpi_errno != MPI_SUCCESS) {
                         MPIR_ERR_POP(mpi_errno);
                     }
+                    if (vci == MPIDI_VCI_INVALID) {
+                        /* Fallback to allocating a shared VCI */
+                        mpi_errno =
+                            MPIDI_vci_alloc(MPIDI_VCI_TYPE__SHARED, MPIDI_VCI_RESOURCE__GENERIC,
+                                            MPIDI_VCI_PROPERTY__GENERIC, &vci);
+                        if (mpi_errno != MPI_SUCCESS) {
+                            MPIR_ERR_POP(mpi_errno);
+                        }
+                    }
+                    MPIDI_COMM_VCI(comm) = vci;
+                } else {
+                    /* Assign multiple VCIs to this comm using the same policy as above */
+                    int vci_i;
+                    
+                    MPIDI_COMM_MULTI_VCI(comm) = MPL_malloc(num_vcis * sizeof(int), MPL_MEM_OTHER);
+
+                    for (vci_i = 0; vci_i < num_vcis; vci_i++) {
+                        vci_type = MPIDI_VCI_TYPE__EXCLUSIVE;
+                        vci_resources = MPIDI_VCI_RESOURCE__GENERIC;
+                        vci_properties = MPIDI_VCI_PROPERTY__GENERIC;
+                        mpi_errno = MPIDI_vci_alloc(vci_type, vci_resources, vci_properties, &vci);
+                        if (mpi_errno != MPI_SUCCESS) {
+                            MPIR_ERR_POP(mpi_errno);
+                        }
+                        if (vci == MPIDI_VCI_INVALID) {
+                            /* Fallback to allocating a shared VCI */
+                            mpi_errno =
+                                MPIDI_vci_alloc(MPIDI_VCI_TYPE__SHARED, MPIDI_VCI_RESOURCE__GENERIC,
+                                                MPIDI_VCI_PROPERTY__GENERIC, &vci);
+                            if (mpi_errno != MPI_SUCCESS) {
+                                MPIR_ERR_POP(mpi_errno);
+                            }
+                        }
+                        MPIDI_COMM_MULTI_VCI(comm)[vci_i] = vci;
+                    }
+                    /* FIXME: this is a hack */
+                    MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
                 }
-                MPIDI_COMM_VCI(comm) = vci;
+                MPIDI_COMM_VCI_COUNT(comm) = num_vcis;
             } else {
+                int orig_comm_num_vcis;
                 /* Use the VCI assigned to the original communicator pointed
                  * to during the creation of this new communicator */
                 MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI_POOL(lock));
 
-                MPIDI_COMM_VCI(comm) = MPIDI_COMM_VCI(comm->orig_comm);
-                MPIDI_VCI(MPIDI_COMM_VCI(comm)).ref_count++;
-                
+                orig_comm_num_vcis = MPIDI_COMM_VCI_COUNT(comm->orig_comm);
+
+                if (orig_comm_num_vcis == 1) {
+                    MPIDI_COMM_VCI(comm) = MPIDI_COMM_VCI(comm->orig_comm);
+                    MPIDI_VCI(MPIDI_COMM_VCI(comm)).ref_count++;
+                } else {
+                    int vci_i;
+                    MPIDI_COMM_MULTI_VCI(comm) = MPL_malloc(orig_comm_num_vcis * sizeof(int), MPL_MEM_OTHER);
+                    for (vci_i = 0; vci_i < orig_comm_num_vcis; vci_i++) {
+                        MPIDI_COMM_MULTI_VCI(comm)[vci_i] =  MPIDI_COMM_MULTI_VCI(comm->orig_comm)[vci_i];
+                        MPIDI_VCI(MPIDI_COMM_MULTI_VCI(comm->orig_comm)[vci_i]).ref_count++;
+                    }
+                    /* FIXME: this is a hack */
+                    MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
+                }
+
+                MPIDI_COMM_VCI_COUNT(comm) = orig_comm_num_vcis;
+
                 MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI_POOL(lock));
             }
-            //if (comm->rank == 0) printf("This COMM got VCI %d\n", MPIDI_COMM_VCI(comm));
+            if (comm->rank == 0) {
+                int num_vcis = MPIDI_COMM_VCI_COUNT(comm);
+                if (num_vcis == 1) {
+                    printf("This COMM got VCI %d\n", MPIDI_COMM_VCI(comm));
+                } else {
+                    printf("This COMM got VCIs: ");
+                    int vci_i;
+                    for (vci_i = 0; vci_i < num_vcis; vci_i++) {
+                        printf("%d, ", MPIDI_COMM_MULTI_VCI(comm)[vci_i]);
+                    }
+                    printf("\n");
+                }
+            }
         }
     }
 
@@ -256,6 +336,7 @@ int MPID_Comm_free_hook(MPIR_Comm * comm)
     int mpi_errno;
     int i, *uniq_avtids;
     int max_n_avts;
+    int num_vcis;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_COMM_FREE_HOOK);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_COMM_FREE_HOOK);
     /* release ref to avts */
@@ -312,9 +393,21 @@ int MPID_Comm_free_hook(MPIR_Comm * comm)
         MPIDIU_release_mlut(MPIDI_COMM(comm, local_map).irreg.mlut.t);
     }
 
-    mpi_errno = MPIDI_vci_free(MPIDI_COMM_VCI(comm));
-    if (mpi_errno != MPI_SUCCESS) {
-        MPIR_ERR_POP(mpi_errno);
+    num_vcis = MPIDI_COMM_VCI_COUNT(comm);
+    if (num_vcis == 1 ) {
+        mpi_errno = MPIDI_vci_free(MPIDI_COMM_VCI(comm));
+        if (mpi_errno != MPI_SUCCESS) {
+            MPIR_ERR_POP(mpi_errno);
+        }
+    } else {
+        int vci_i;
+        for (vci_i = 0; vci_i < num_vcis; vci_i++) {
+            mpi_errno = MPIDI_vci_free(MPIDI_COMM_MULTI_VCI(comm)[vci_i]);
+            if (mpi_errno != MPI_SUCCESS) {
+                MPIR_ERR_POP(mpi_errno);
+            }
+        }
+        MPL_free(MPIDI_COMM_MULTI_VCI(comm));
     }
     
     mpi_errno = MPIDI_NM_mpi_comm_free_hook(comm);

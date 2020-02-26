@@ -495,12 +495,16 @@ typedef struct {
 
     /* VCI hash */
 typedef struct MPIDI_vci_hash {
-    union {
+    /* FIXME: u should be a union */
+    struct {
         struct {
             int vci;
         } single;
-        /* TODO: struct multi */
+        struct {
+            int *vci;
+        } multi;
     } u;
+    int count;
 } MPIDI_vci_hash_t;
 
 typedef struct MPIDI_Devcomm_t {
@@ -526,6 +530,8 @@ typedef struct MPIDI_Devcomm_t {
 #define MPIDIG_COMM(comm,field) ((comm)->dev.ch4.am).field
 #define MPIDI_COMM(comm,field) ((comm)->dev.ch4).field
 #define MPIDI_COMM_VCI(comm) ((comm)->dev.ch4).vci_hash.u.single.vci
+#define MPIDI_COMM_MULTI_VCI(comm) ((comm)->dev.ch4).vci_hash.u.multi.vci
+#define MPIDI_COMM_VCI_COUNT(comm) ((comm)->dev.ch4).vci_hash.count
 
 typedef struct {
     union {
