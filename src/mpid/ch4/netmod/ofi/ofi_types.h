@@ -243,6 +243,7 @@ typedef struct {
     struct fid_cq *cq;
     struct fid_cntr *rma_cmpl_cntr;
     uint64_t rma_issued_cntr;
+    struct MPIDI_OFI_win_request *syncQ;
 } MPIDI_OFI_context_t;
 
 typedef struct {

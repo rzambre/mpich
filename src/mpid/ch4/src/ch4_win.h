@@ -306,12 +306,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Win_flush(int rank, MPIR_Win * win)
     MPIDI_workq_vci_progress_unsafe();
 
 #ifdef MPIDI_CH4_DIRECT_NETMOD
-    mpi_errno = MPIDI_NM_mpi_win_flush(rank, win, NULL);
+    mpi_errno = MPIDI_NM_mpi_win_flush(rank, win, NULL, vci);
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
     }
 #else
-    mpi_errno = MPIDIG_mpi_win_flush(rank, win);
+    mpi_errno = MPIDIG_mpi_win_flush(rank, win, vci);
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
 #endif

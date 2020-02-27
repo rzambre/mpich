@@ -180,7 +180,6 @@ typedef struct {
                                  * if we are to use per-window counter */
     struct fid_cntr *cmpl_cntr;
     uint64_t win_id;
-    struct MPIDI_OFI_win_request *syncQ;
     MPIDI_OFI_win_targetinfo_t *winfo;
 
     /* Accumulate related info. The struct internally uses MPIDI_OFI_DT_SIZES
