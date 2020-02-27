@@ -825,6 +825,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Put(const void *origin_addr,
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PUT);
 
     vci = MPIDI_COMM_VCI(win->comm_ptr);
+
     mpi_errno = MPIDI_put_safe(origin_addr, origin_count, origin_datatype,
                                target_rank, target_disp, target_count, target_datatype, win, vci);
     if (mpi_errno != MPI_SUCCESS) {
@@ -849,7 +850,8 @@ MPL_STATIC_INLINE_PREFIX int MPID_Get(void *origin_addr,
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_GET);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_GET);
 
-    vci = MPIDI_COMM_VCI(win->comm_ptr); 
+    vci = MPIDI_COMM_VCI(win->comm_ptr);
+ 
     mpi_errno = MPIDI_get_safe(origin_addr, origin_count, origin_datatype,
                                target_rank, target_disp, target_count, target_datatype, win, vci);
     if (mpi_errno != MPI_SUCCESS) {

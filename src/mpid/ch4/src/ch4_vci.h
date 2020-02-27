@@ -27,4 +27,17 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get(MPIR_Comm * comm_ptr, int rank, int t
     return MPIDI_COMM_VCI(comm_ptr);
 }
 
+MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_with_tid(MPIR_Comm * comm)
+{
+    int vci, hash;
+
+    MPL_thread_id_t tid;
+    MPL_thread_self(&tid);
+     
+    hash = abs((tid * 2654435761) >> 9) % MPIDI_COMM_VCI_COUNT(comm);
+    vci = MPIDI_COMM_MULTI_VCI(comm)[hash];
+    
+    //printf("Thread %d got VCI %d\n", tid, vci);
+    return vci;
+}
 #endif /* CH4_VCI_H_INCLUDED */
