@@ -557,11 +557,20 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_accumulate_safe(const void *origin_addr,
                                                    MPI_Datatype target_datatype, MPI_Op op,
                                                    MPIR_Win * win)
 {
-    int vci, mpi_errno = MPI_SUCCESS, cs_acq = 0;
+    int vci, num_vcis, mpi_errno = MPI_SUCCESS, cs_acq = 0;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_ACCUMULATE_SAFE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_ACCUMULATE_SAFE);
 
-    vci = MPIDI_COMM_VCI(win->comm_ptr);
+    num_vcis = MPIDI_COMM_VCI_COUNT(win->comm_ptr);
+
+    if (num_vcis == 1) {
+        vci = MPIDI_COMM_VCI(win->comm_ptr);
+    } else {
+        if ((MPIDIG_WIN(win, info_args).accumulate_ordering == 0) &&
+            MPIDIG_WIN(win, info_args).auto_vci_hashing) {
+            vci = MPIDI_vci_get_with_tid(win->comm_ptr);
+        }
+    }
     
     MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
     MPIDI_workq_vci_progress_unsafe();
