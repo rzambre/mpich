@@ -69,6 +69,8 @@ int MPIDI_vci_pool_alloc(int num_vnis)
         MPIDI_VCI(i).vsi = MPIDI_SHM_VSI_INVALID;
 #endif
         MPIDI_VCI(i).is_free = 1;
+        
+        MPIDI_VCI(i).unsuccessful_test_count = 0;
     }
 
     MPID_Thread_mutex_create(&MPIDI_VCI_POOL(lock), &mpi_errno);

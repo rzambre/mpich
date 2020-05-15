@@ -591,6 +591,7 @@ typedef struct MPIDI_vci {
     int is_free;                /* flag to check if this VCI is free or not */
     int vni;                    /* index to the VNI in the netmod's pool */
     int vsi;                    /* index to the VSI in the shmmod's pool */
+    int unsuccessful_test_count;             /* number of calls to progress during MPI_Test */
 } MPIDI_vci_t;
 
  /* VCI pool */

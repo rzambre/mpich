@@ -38,12 +38,10 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_hooks(void)
     goto fn_exit;
 }
 
-MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_vci(MPIDI_hook_flags_t hook_flags, int vci)
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_vci_unsafe(MPIDI_hook_flags_t hook_flags, int vci)
 {
     int mpi_errno;
     mpi_errno = MPI_SUCCESS;
-
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
 
     /* Progress the WorkQ associated with this VCI */
     mpi_errno = MPIDI_workq_vci_progress_unsafe();
@@ -67,6 +65,24 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_vci(MPIDI_hook_flags_t hook_fla
         }
     }
 #endif
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_vci(MPIDI_hook_flags_t hook_flags, int vci)
+{
+    int mpi_errno;
+    mpi_errno = MPI_SUCCESS;
+
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+
+    mpi_errno = MPIDI_Progress_test_vci_unsafe(hook_flags, vci);
+    if (mpi_errno != MPI_SUCCESS) {
+        MPIR_ERR_POP(mpi_errno);
+    }
 
   fn_exit:
     MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
@@ -177,6 +193,61 @@ MPL_STATIC_INLINE_PREFIX void MPID_Progress_end(MPID_Progress_state * state)
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_END);
     return;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request * req)
+{
+    int ret, vci_progress_attempts, vci;
+
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_TEST_REQ);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_TEST_REQ);
+    
+    ret = MPI_SUCCESS;
+    vci = MPIDI_REQUEST(req, vci);
+    
+    /* Need this critical section here to cleanly update the
+     * unsuccessful_test_count. With atomics, it is not clean.*/
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+
+    if (MPIDI_VCI(vci).unsuccessful_test_count < MPIDI_MAX_VCI_PROGRESS_ATTEMPTS) {
+        /* Per-VCI progress (this version is without recursive locking) 
+         * (possible to implement a version with recursive locking to
+         * be consistent with how per-VCI progress is invoked in wait_req) */
+        ret = MPIDI_Progress_test_hooks();
+        if (ret != MPI_SUCCESS) {
+            MPIR_ERR_POP(ret);
+        }
+        ret = MPIDI_Progress_test_vci_unsafe(MPIDI_PROGRESS_ALL, vci);
+        if (ret != MPI_SUCCESS) {
+            MPIR_ERR_POP(ret);
+        }
+
+        if (!MPIR_Request_is_complete(req)) {
+            /* Increment the counter */
+            MPIDI_VCI(vci).unsuccessful_test_count++;
+        } else {
+            /* Reset the counter */
+            MPIDI_VCI(vci).unsuccessful_test_count = 0;
+        }
+    } else {
+        /* Global progress (recursive locking on the lock of this VCI) */
+        ret = MPIDI_Progress_test(MPIDI_PROGRESS_ALL, MPIDI_PROGRESS_TYPE__GLOBAL, 0);
+        if (ret != MPI_SUCCESS) {
+            MPIR_ERR_POP(ret);
+        }
+
+        /* Reset the counter */
+        /* (Maybe a better (?) policy would be to keep incrementing
+         * the counter if the request has not been completed) */
+        MPIDI_VCI(vci).unsuccessful_test_count = 0;
+    }
+  
+  fn_exit:
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_TEST_REQ);
+    return ret;
+  fn_fail:
+    goto fn_exit;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPIR_Request * req)
