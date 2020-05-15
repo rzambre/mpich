@@ -166,7 +166,28 @@ MPL_STATIC_INLINE_PREFIX int MPID_Finalize_async_thread(void)
 
 MPL_STATIC_INLINE_PREFIX int MPID_Test(MPIR_Request * request_ptr, int *flag, MPI_Status * status)
 {
-    return MPIR_Test_impl(request_ptr, flag, status);
+    int mpi_errno = MPI_SUCCESS;
+
+    mpi_errno = MPID_Progress_test_req(request_ptr);
+    if (mpi_errno)
+        MPIR_ERR_POP(mpi_errno);
+
+    if (MPIR_Request_has_poll_fn(request_ptr)) {
+        mpi_errno = MPIR_Grequest_poll(request_ptr, status);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+    }
+
+    if (MPIR_Request_is_complete(request_ptr))
+        *flag = TRUE;
+    else
+        *flag = FALSE;
+
+  fn_exit:
+    return mpi_errno;
+
+  fn_fail:
+    goto fn_exit;
 }
 
 MPL_STATIC_INLINE_PREFIX int MPID_Testall(int count, MPIR_Request * request_ptrs[],
