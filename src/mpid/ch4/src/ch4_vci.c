@@ -30,17 +30,16 @@ int MPIDI_vci_pool_alloc(int num_vnis)
     int i, req_i;
     MPIR_Request *temp_req[MPIDI_MAX_REQUEST_CACHE_COUNT];
 
-    /* Statically allocate the maximum possible size of the CH4 VCI pool.
-     *      * The root VCI takes 1 NM and 1 SHM VCI. The rest could be VSI-only
-     *           * or VNI-only VCIs. It is guaranteed that we have at least 1 VNI and
-     *                * at least 1 VSI. */
+    /* Setup only as many number of VCIs as there are VNIs/VSIs */
 #ifndef MPIDI_CH4_DIRECT_NETMOD
+    /* The root VCI takes 1 NM and 1 SHM VCI. The rest could be
+     * VSI-only or VNI-only VCIs. It is guaranteed that we have at
+     * least 1 VNI and at least 1 VSI.
+     */
     MPIDI_VCI_POOL(max_vcis) = 1 + (num_vnis - 1) + (num_vsis - 1);
 #else
     MPIDI_VCI_POOL(max_vcis) = num_vnis;
 #endif
-
-    MPIDI_VCI_POOL(vci) = MPL_malloc(MPIDI_VCI_POOL(max_vcis) * sizeof(MPIDI_vci_t), MPL_MEM_OTHER);
 
     /* Initialize all VCIs in the pool */
     for (i = 0; i < MPIDI_VCI_POOL(max_vcis); i++) {
@@ -114,8 +113,6 @@ int MPIDI_vci_pool_free(void)
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
     }
-
-    MPL_free(MPIDI_VCI_POOL(vci));
 
   fn_exit:
     return mpi_errno;
