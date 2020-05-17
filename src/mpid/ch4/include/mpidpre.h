@@ -599,7 +599,7 @@ typedef struct MPIDI_vci_pool {
     int next_free_vci;
     int max_vcis;
     MPID_Thread_mutex_t lock;   /* lock to protect the VCI pool */
-    MPIDI_vci_t *vci;           /* array of VCIs */
+    MPIDI_vci_t vci[MPIDI_CH4_MAX_VCIS];           /* array of VCIs */
 } MPIDI_vci_pool_t;
 
 #define MPIDI_VCI_ROOT 0
