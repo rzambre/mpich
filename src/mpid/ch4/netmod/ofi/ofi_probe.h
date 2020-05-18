@@ -22,6 +22,7 @@ static inline int MPIDI_OFI_do_iprobe(int source,
                                       MPI_Status * status,
                                       MPIR_Request ** message, uint64_t peek_flags)
 {
+    printf("Multiple VCIs not supported\n");
     int mpi_errno = MPI_SUCCESS;
     fi_addr_t remote_proc;
     uint64_t match_bits, mask_bits;
