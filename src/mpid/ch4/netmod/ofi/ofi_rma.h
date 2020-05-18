@@ -184,7 +184,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_put_get(MPIR_Win * w
                                                                     MPIDI_OFI_win_request_t **
                                                                     winreq, uint64_t * flags,
                                                                     struct fid_ep **ep,
-                                                                    MPIR_Request ** sigreq)
+                                                                    MPIR_Request ** sigreq, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     size_t o_size, t_size, alloc_iovs, alloc_iov_size;
@@ -204,7 +204,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_put_get(MPIR_Win * w
         + MPIDI_OFI_align_iov_len(alloc_iovs * t_size)
         + MPIDI_OFI_IOVEC_ALIGN - 1;    /* in case iov_store[0] is not aligned as we want */
 
-    req = (MPIDI_OFI_win_request_t *) MPIR_Request_create(MPIR_REQUEST_KIND__RMA);
+    req = (MPIDI_OFI_win_request_t *) MPID_Request_create_unsafe(MPIR_REQUEST_KIND__RMA, vci);
     MPIR_ERR_CHKANDSTMT((req) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
     req->noncontig =
         (MPIDI_OFI_win_noncontig_t *) MPL_malloc((alloc_iov_size) + sizeof(*(req->noncontig)),
@@ -247,7 +247,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_accumulate(MPIR_Win 
                                                                        MPIDI_OFI_win_request_t **
                                                                        winreq, uint64_t * flags,
                                                                        struct fid_ep **ep,
-                                                                       MPIR_Request ** sigreq)
+                                                                       MPIR_Request ** sigreq, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     size_t o_size, t_size, alloc_iovs, alloc_iov_size;
@@ -267,7 +267,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_allocate_win_request_accumulate(MPIR_Win 
         + MPIDI_OFI_align_iov_len(alloc_iovs * t_size)
         + MPIDI_OFI_IOVEC_ALIGN - 1;    /* in case iov_store[0] is not aligned as we want */
 
-    req = (MPIDI_OFI_win_request_t *) MPIR_Request_create(MPIR_REQUEST_KIND__RMA);
+    req = (MPIDI_OFI_win_request_t *) MPID_Request_create_unsafe(MPIR_REQUEST_KIND__RMA, vci);
     MPIR_ERR_CHKANDSTMT((req) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
     req->noncontig =
         (MPIDI_OFI_win_noncontig_t *) MPL_malloc((alloc_iov_size) + sizeof(*(req->noncontig)),
@@ -466,7 +466,7 @@ static inline int MPIDI_OFI_do_put(const void *origin_addr,
                                                                   origin_bytes,
                                                                   target_bytes,
                                                                   MPIDI_OFI_global.max_msg_size,
-                                                                  &req, &flags, &ep, sigreq));
+                                                                  &req, &flags, &ep, sigreq, vci));
 
     offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
 
@@ -638,7 +638,7 @@ static inline int MPIDI_OFI_do_get(void *origin_addr,
                                                                   origin_datatype, target_datatype,
                                                                   origin_bytes, target_bytes,
                                                                   MPIDI_OFI_global.max_msg_size,
-                                                                  &req, &flags, &ep, sigreq));
+                                                                  &req, &flags, &ep, sigreq, vci));
 
     offset = target_disp * MPIDI_OFI_winfo_disp_unit(win, target_rank);
     req->event_id = MPIDI_OFI_EVENT_ABORT;
@@ -930,7 +930,7 @@ static inline int MPIDI_OFI_do_accumulate(const void *origin_addr,
     MPIDI_OFI_MPI_CALL_POP(MPIDI_OFI_allocate_win_request_accumulate
                            (win, origin_count, target_count, target_rank, origin_datatype,
                             target_datatype, origin_bytes, target_bytes, max_size, &req, &flags,
-                            &ep, sigreq));
+                            &ep, sigreq, vci));
 
     req->event_id = MPIDI_OFI_EVENT_ABORT;
     req->next = MPIDI_OFI_WIN(win).syncQ;
