@@ -13,18 +13,19 @@
 
 #include "ch4r_proc.h"
 #include "ch4_impl.h"
+#include "ch4_vci.h"
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_iprobe_unsafe(int source,
                                                  int tag, MPIR_Comm * comm, int context_offset,
                                                  MPIDI_av_entry_t * av, int *flag,
-                                                 MPI_Status * status)
+                                                 MPI_Status * status, int vci)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_PROBE_UNSAFE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROBE_UNSAFE);
 
 #ifdef MPIDI_CH4_DIRECT_NETMOD
-    mpi_errno = MPIDI_NM_mpi_iprobe(source, tag, comm, context_offset, av, flag, status, 0);
+    mpi_errno = MPIDI_NM_mpi_iprobe(source, tag, comm, context_offset, av, flag, status, vci);
 #else
     if (unlikely(source == MPI_ANY_SOURCE)) {
         mpi_errno = MPIDI_SHM_mpi_iprobe(source, tag, comm, context_offset, flag, status);
@@ -106,18 +107,18 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_improbe_unsafe(int source,
 MPL_STATIC_INLINE_PREFIX int MPIDI_iprobe_safe(int source,
                                                int tag, MPIR_Comm * comm, int context_offset,
                                                MPIDI_av_entry_t * av, int *flag,
-                                               MPI_Status * status)
+                                               MPI_Status * status, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_IPROBE_SAFE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_IPROBE_SAFE);
 
-    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
 
     MPIDI_workq_vci_progress_unsafe();
-    mpi_errno = MPIDI_iprobe_unsafe(source, tag, comm, context_offset, av, flag, status);
+    mpi_errno = MPIDI_iprobe_unsafe(source, tag, comm, context_offset, av, flag, status, vci);
 
-    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(MPIDI_VCI_ROOT).lock);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
 
     if (mpi_errno != MPI_SUCCESS)
         MPIR_ERR_POP(mpi_errno);
@@ -176,7 +177,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Probe(int source,
 
     av = MPIDIU_comm_rank_to_av(comm, source);
     while (!flag) {
-        mpi_errno = MPIDI_iprobe_safe(source, tag, comm, context_offset, av, &flag, status);
+        mpi_errno = MPIDI_iprobe_safe(source, tag, comm, context_offset, av, &flag, status, MPIDI_VCI_ROOT);
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POP(mpi_errno);
         }
@@ -283,9 +284,12 @@ MPL_STATIC_INLINE_PREFIX int MPID_Iprobe(int source,
 {
 
     int mpi_errno;
+    int vci;
     MPIDI_av_entry_t *av = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IPROBE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IPROBE);
+
+    vci = MPIDI_vci_get(comm, source, tag); 
 
     if (unlikely(source == MPI_PROC_NULL)) {
         MPIR_Status_set_procnull(status);
@@ -297,13 +301,16 @@ MPL_STATIC_INLINE_PREFIX int MPID_Iprobe(int source,
     *flag = 0;
     av = MPIDIU_comm_rank_to_av(comm, source);
 
-    mpi_errno = MPIDI_iprobe_safe(source, tag, comm, context_offset, av, flag, status);
+    mpi_errno = MPIDI_iprobe_safe(source, tag, comm, context_offset, av, flag, status, vci);
     if (mpi_errno != MPI_SUCCESS) {
         MPIR_ERR_POP(mpi_errno);
     }
 
     if (!*flag) {
-        mpi_errno = MPID_Progress_test();
+        /* Pure Per-VCI progress for now
+         * (may not be entirely correct: is global progress required?)
+         */
+        mpi_errno = MPIDI_Progress_test(MPIDI_PROGRESS_ALL, MPIDI_PROGRESS_TYPE__VCI, vci);
         if (mpi_errno != MPI_SUCCESS) {
             MPIR_ERR_POP(mpi_errno);
         }
