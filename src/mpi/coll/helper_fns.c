@@ -134,7 +134,7 @@ int MPIC_Send(const void *buf, MPI_Aint count, MPI_Datatype datatype, int dest, 
         mpi_errno = MPIC_Wait(request_ptr, errflag);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
-        MPIR_Request_free(request_ptr);
+        MPID_Request_free_safe(request_ptr);
     }
 
   fn_exit:
@@ -191,7 +191,7 @@ int MPIC_Recv(void *buf, MPI_Aint count, MPI_Datatype datatype, int source, int 
 
         *status = request_ptr->status;
         mpi_errno = status->MPI_ERROR;
-        MPIR_Request_free(request_ptr);
+        MPID_Request_free_safe(request_ptr);
     } else {
         MPIR_Process_status(status, errflag);
 
@@ -251,7 +251,7 @@ int MPIC_Ssend(const void *buf, MPI_Aint count, MPI_Datatype datatype, int dest,
         mpi_errno = MPIC_Wait(request_ptr, errflag);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
-        MPIR_Request_free(request_ptr);
+        MPID_Request_free_safe(request_ptr);
     }
 
   fn_exit:
@@ -336,8 +336,8 @@ int MPIC_Sendrecv(const void *sendbuf, MPI_Aint sendcount, MPI_Datatype sendtype
         }
     }
 
-    MPIR_Request_free(send_req_ptr);
-    MPIR_Request_free(recv_req_ptr);
+    MPID_Request_free_safe(send_req_ptr);
+    MPID_Request_free_safe(recv_req_ptr);
 
   fn_exit:
     MPL_DBG_MSG_D(MPIR_DBG_PT2PT, TYPICAL, "OUT: errflag = %d", (int) *errflag);
@@ -416,7 +416,7 @@ int MPIC_Sendrecv_replace(void *buf, MPI_Aint count, MPI_Datatype datatype,
         /* --BEGIN ERROR HANDLING-- */
         /* FIXME: should we cancel the pending (possibly completed) receive
          * request or wait for it to complete? */
-        MPIR_Request_free(rreq);
+        MPID_Request_free_safe(rreq);
         MPIR_ERR_POP(mpi_errno);
         /* --END ERROR HANDLING-- */
     }
@@ -438,8 +438,8 @@ int MPIC_Sendrecv_replace(void *buf, MPI_Aint count, MPI_Datatype datatype,
         }
     }
 
-    MPIR_Request_free(sreq);
-    MPIR_Request_free(rreq);
+    MPID_Request_free_safe(sreq);
+    MPID_Request_free_safe(rreq);
 
   fn_exit:
     MPIR_CHKLMEM_FREEALL();
