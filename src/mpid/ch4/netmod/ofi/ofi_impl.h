@@ -49,15 +49,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_get_mpi_acc_op_index(int op)
 /*
  * Helper routines and macros for request completion
  */
-#define MPIDI_OFI_PROGRESS()                                      \
+#define MPIDI_OFI_PROGRESS(vni)                                      \
     do {                                                          \
-        mpi_errno = MPIDI_NM_progress(0, 0);                      \
+        mpi_errno = MPIDI_NM_progress(vni, 0);                      \
         if (mpi_errno!=MPI_SUCCESS) MPIR_ERR_POP(mpi_errno);      \
         MPID_THREAD_CS_YIELD(GLOBAL, MPIR_THREAD_GLOBAL_ALLFUNC_MUTEX); \
     } while (0)
 
-#define MPIDI_OFI_PROGRESS_WHILE(cond)                 \
-    while (cond) MPIDI_OFI_PROGRESS()
+#define MPIDI_OFI_PROGRESS_WHILE(cond,vni)                 \
+    while (cond) MPIDI_OFI_PROGRESS(vni)
 
 #define MPIDI_OFI_ERR  MPIR_ERR_CHKANDJUMP4
 #define MPIDI_OFI_CALL(FUNC,STR)                                     \

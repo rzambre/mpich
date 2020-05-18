@@ -24,7 +24,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_iprobe_unsafe(int source,
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_PROBE_UNSAFE);
 
 #ifdef MPIDI_CH4_DIRECT_NETMOD
-    mpi_errno = MPIDI_NM_mpi_iprobe(source, tag, comm, context_offset, av, flag, status);
+    mpi_errno = MPIDI_NM_mpi_iprobe(source, tag, comm, context_offset, av, flag, status, 0);
 #else
     if (unlikely(source == MPI_ANY_SOURCE)) {
         mpi_errno = MPIDI_SHM_mpi_iprobe(source, tag, comm, context_offset, flag, status);

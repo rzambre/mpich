@@ -18,27 +18,32 @@ static inline int MPIDI_OFI_do_iprobe(int source,
                                       MPIR_Comm * comm,
                                       int context_offset,
                                       MPIDI_av_entry_t * addr,
+                                      int vci,
                                       int *flag,
                                       MPI_Status * status,
                                       MPIR_Request ** message, uint64_t peek_flags)
 {
-    printf("Multiple VCIs not supported\n");
     int mpi_errno = MPI_SUCCESS;
     fi_addr_t remote_proc;
     uint64_t match_bits, mask_bits;
     MPIR_Request r, *rreq;      /* don't need to init request, output only */
     struct fi_msg_tagged msg;
     int ofi_err;
+    int my_vni, src_vni;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_DO_IPROBE);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IPROBE);
 
+    my_vni = MPIDI_VCI(vci).vni;
+    src_vni = my_vni;
+
     if (unlikely(MPI_ANY_SOURCE == source))
         remote_proc = FI_ADDR_UNSPEC;
     else
-        remote_proc = MPIDI_OFI_av_to_phys(addr);
+        remote_proc = MPIDI_OFI_av_to_phys_target_vni(addr, src_vni);
 
     if (message) {
+        printf("Multiple VCIs not supported\n");
         rreq = MPIR_Request_create(MPIR_REQUEST_KIND__MPROBE);
         MPIR_ERR_CHKANDSTMT((rreq) == NULL, mpi_errno, MPIX_ERR_NOREQ, goto fn_fail, "**nomemreq");
     } else {
@@ -59,25 +64,29 @@ static inline int MPIDI_OFI_do_iprobe(int source,
     msg.context = (void *) &(MPIDI_OFI_REQUEST(rreq, context));
     msg.data = 0;
 
-    MPIDI_OFI_CALL_RETURN(fi_trecvmsg(MPIDI_OFI_CTX(0).rx, &msg,
+    MPIDI_OFI_CALL_RETURN(fi_trecvmsg(MPIDI_OFI_CTX(my_vni).rx, &msg,
                                       peek_flags | FI_PEEK | FI_COMPLETION | FI_REMOTE_CQ_DATA),
                           ofi_err);
     if (ofi_err == -FI_ENOMSG) {
         *flag = 0;
-        if (message)
+        if (message) {
+            printf("Multiple VCIs not supported\n");
             MPIR_Request_free(rreq);
+        }
         goto fn_exit;
     }
 
     MPIDI_OFI_CALL(ofi_err, trecvmsg);
-    MPIDI_OFI_PROGRESS_WHILE(MPIDI_OFI_REQUEST(rreq, util_id) == MPIDI_OFI_PEEK_START);
+    MPIDI_OFI_PROGRESS_WHILE(MPIDI_OFI_REQUEST(rreq, util_id) == MPIDI_OFI_PEEK_START, my_vni);
 
     switch (MPIDI_OFI_REQUEST(rreq, util_id)) {
         case MPIDI_OFI_PEEK_NOT_FOUND:
             *flag = 0;
 
-            if (message)
+            if (message) {
+                printf("Multiple VCIs not supported\n");
                 MPIR_Request_free(rreq);
+            }
 
             goto fn_exit;
             break;
@@ -87,6 +96,7 @@ static inline int MPIDI_OFI_do_iprobe(int source,
             *flag = 1;
 
             if (message) {
+                printf("Multiple VCIs not supported\n");
                 MPIR_Request_add_ref(rreq);
                 *message = rreq;
             }
@@ -123,7 +133,7 @@ static inline int MPIDI_NM_mpi_improbe(int source,
 #endif
 
     /* Set flags for mprobe peek, when ready */
-    mpi_errno = MPIDI_OFI_do_iprobe(source, tag, comm, context_offset, addr,
+    mpi_errno = MPIDI_OFI_do_iprobe(source, tag, comm, context_offset, addr, 0,
                                     flag, status, message, FI_CLAIM | FI_COMPLETION);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_exit;
@@ -142,7 +152,7 @@ static inline int MPIDI_NM_mpi_iprobe(int source,
                                       int tag,
                                       MPIR_Comm * comm,
                                       int context_offset, MPIDI_av_entry_t * addr, int *flag,
-                                      MPI_Status * status)
+                                      MPI_Status * status, int vci)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IPROBE);
@@ -155,7 +165,7 @@ static inline int MPIDI_NM_mpi_iprobe(int source,
 #endif
     {
         mpi_errno =
-            MPIDI_OFI_do_iprobe(source, tag, comm, context_offset, addr, flag, status, NULL, 0ULL);
+            MPIDI_OFI_do_iprobe(source, tag, comm, context_offset, addr, vci, flag, status, NULL, 0ULL);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IPROBE);

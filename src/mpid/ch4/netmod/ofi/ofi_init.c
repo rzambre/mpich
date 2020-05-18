@@ -376,7 +376,7 @@ static int conn_manager_destroy()
         }
 
         for (i = 0; i < j; ++i) {
-            MPIDI_OFI_PROGRESS_WHILE(!req[i].done);
+            MPIDI_OFI_PROGRESS_WHILE(!req[i].done, 0);
             MPIDI_OFI_global.conn_mgr.conn_list[i].state = MPIDI_OFI_DYNPROC_DISCONNECTED;
             MPL_DBG_MSG_FMT(MPIDI_CH4_DBG_GENERAL, VERBOSE,
                             (MPL_DBG_FDEST, "conn_id=%d closed", i));
@@ -434,7 +434,7 @@ static int dynproc_send_disconnect(int conn_id)
         MPIDI_OFI_CALL_RETRY(fi_tsendmsg(MPIDI_OFI_CTX(0).tx, &msg,
                                          FI_COMPLETION | FI_TRANSMIT_COMPLETE | FI_REMOTE_CQ_DATA),
                              tsendmsg, MPIDI_OFI_CALL_LOCK, FALSE, MPIDI_VCI_ROOT);
-        MPIDI_OFI_PROGRESS_WHILE(!req.done);
+        MPIDI_OFI_PROGRESS_WHILE(!req.done, 0);
     }
 
     switch (MPIDI_OFI_global.conn_mgr.conn_list[conn_id].state) {
@@ -1024,7 +1024,7 @@ int MPIDI_OFI_mpi_finalize_hook(void)
 
     /* Progress until we drain all inflight RMA send long buffers */
     while (OPA_load_int(&MPIDI_OFI_global.am_inflight_rma_send_mrs) > 0)
-        MPIDI_OFI_PROGRESS();
+        MPIDI_OFI_PROGRESS(0);
 
     /* Destroy RMA key allocator */
     MPIDI_OFI_mr_key_allocator_destroy();
@@ -1036,7 +1036,7 @@ int MPIDI_OFI_mpi_finalize_hook(void)
 
     /* Progress until we drain all inflight injection emulation requests */
     while (OPA_load_int(&MPIDI_OFI_global.am_inflight_inject_emus) > 0)
-        MPIDI_OFI_PROGRESS();
+        MPIDI_OFI_PROGRESS(0);
     MPIR_Assert(OPA_load_int(&MPIDI_OFI_global.am_inflight_inject_emus) == 0);
 
     if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {

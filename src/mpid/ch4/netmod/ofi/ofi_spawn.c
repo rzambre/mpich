@@ -329,7 +329,7 @@ static int dynproc_handshake(int root, int phase, int timeout, int port_id, fi_a
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
 
-        MPIDI_OFI_PROGRESS_WHILE(!req.done);
+        MPIDI_OFI_PROGRESS_WHILE(!req.done, 0);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_DYNPROC_HANDSHAKE);
@@ -383,7 +383,7 @@ static int dynproc_exchange_map(int root, int phase, int port_id, fi_addr_t * co
             MPIDI_OFI_CALL(fi_trecvmsg
                            (MPIDI_OFI_CTX(0).rx, &msg,
                             FI_PEEK | FI_COMPLETION | FI_REMOTE_CQ_DATA), trecv);
-            MPIDI_OFI_PROGRESS_WHILE(req[0].done == MPIDI_OFI_PEEK_START);
+            MPIDI_OFI_PROGRESS_WHILE(req[0].done == MPIDI_OFI_PEEK_START, 0);
         }
 
         *remote_size = req[0].msglen / sizeof(size_t);
@@ -409,7 +409,7 @@ static int dynproc_exchange_map(int root, int phase, int port_id, fi_addr_t * co
                                       match_bits,
                                       mask_bits, &req[0].context), trecv, MPIDI_OFI_CALL_LOCK,
                              FALSE, MPIDI_VCI_ROOT);
-        MPIDI_OFI_PROGRESS_WHILE(!req[0].done);
+        MPIDI_OFI_PROGRESS_WHILE(!req[0].done, 0);
 
         for (i = 0; i < (*remote_size); i++)
             remote_upid_recvsize += (*remote_upid_size)[i];
@@ -434,7 +434,7 @@ static int dynproc_exchange_map(int root, int phase, int port_id, fi_addr_t * co
                                       mask_bits, &req[2].context), trecv, MPIDI_OFI_CALL_LOCK,
                              FALSE, MPIDI_VCI_ROOT);
 
-        MPIDI_OFI_PROGRESS_WHILE(!req[1].done || !req[2].done);
+        MPIDI_OFI_PROGRESS_WHILE(!req[1].done || !req[2].done, 0);
         size_t disp = 0;
         for (i = 0; i < req[0].source; i++)
             disp += (*remote_upid_size)[i];
@@ -500,7 +500,7 @@ static int dynproc_exchange_map(int root, int phase, int port_id, fi_addr_t * co
                                NULL, comm_ptr->rank, *conn, match_bits, (void *) &req[2].context,
                                MPIDI_OFI_DO_SEND, MPIDI_OFI_CALL_LOCK, FALSE, MPIDI_VCI_ROOT);
 
-        MPIDI_OFI_PROGRESS_WHILE(!req[0].done || !req[1].done || !req[2].done);
+        MPIDI_OFI_PROGRESS_WHILE(!req[0].done || !req[1].done || !req[2].done, 0);
 
         MPL_free(local_upid_size);
         MPL_free(local_upids);

@@ -120,7 +120,7 @@ typedef int (*MPIDI_NM_mpi_improbe_t) (int source, int tag, MPIR_Comm * comm, in
                                        MPIDI_av_entry_t * addr, int *flag, MPIR_Request ** message,
                                        MPI_Status * status);
 typedef int (*MPIDI_NM_mpi_iprobe_t) (int source, int tag, MPIR_Comm * comm, int context_offset,
-                                      MPIDI_av_entry_t * addr, int *flag, MPI_Status * status);
+                                      MPIDI_av_entry_t * addr, int *flag, MPI_Status * status, int vci);
 typedef int (*MPIDI_NM_mpi_win_set_info_t) (MPIR_Win * win, MPIR_Info * info);
 typedef int (*MPIDI_NM_mpi_win_shared_query_t) (MPIR_Win * win, int rank, MPI_Aint * size,
                                                 int *disp_unit, void *baseptr);
@@ -807,7 +807,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_improbe(int source, int tag, MPIR_Comm
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_iprobe(int source, int tag, MPIR_Comm * comm,
                                                  int context_offset, MPIDI_av_entry_t * addr,
                                                  int *flag,
-                                                 MPI_Status * status) MPL_STATIC_INLINE_SUFFIX;
+                                                 MPI_Status * status, int vci) MPL_STATIC_INLINE_SUFFIX;
 int MPIDI_NM_mpi_win_set_info(MPIR_Win * win, MPIR_Info * info);
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_win_shared_query(MPIR_Win * win, int rank,
                                                            MPI_Aint * size, int *disp_unit,
