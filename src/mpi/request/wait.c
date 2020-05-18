@@ -97,7 +97,7 @@ int MPIR_Wait(MPI_Request * request, MPI_Status * status)
 
     mpi_errno = MPIR_Request_completion_processing(request_ptr, status);
     if (!MPIR_Request_is_persistent(request_ptr)) {
-        MPIR_Request_free(request_ptr);
+        MPID_Request_free_safe(request_ptr);
         *request = MPI_REQUEST_NULL;
     }
     if (mpi_errno)
