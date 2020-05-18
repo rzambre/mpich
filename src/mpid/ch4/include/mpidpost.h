@@ -194,7 +194,97 @@ MPL_STATIC_INLINE_PREFIX int MPID_Testall(int count, MPIR_Request * request_ptrs
                                           int *flag, MPI_Status array_of_statuses[],
                                           int requests_property)
 {
-    return MPIR_Testall_impl(count, request_ptrs, flag, array_of_statuses, requests_property);
+    int mpi_errno = MPI_SUCCESS;
+    
+    if (requests_property & MPIR_REQUESTS_PROPERTY__NO_GREQUESTS) {
+        /* VCI aware implementation for the commmon case */
+        int reqs_to_poke[MPIDI_CH4_MAX_VCIS] = {0};
+        int num_reqs_to_poke;
+        int start_req;
+        int vci_of_req;
+        int n_completed;
+        int i, j;
+        
+        /* Store the first VCI */
+        num_reqs_to_poke = 0;
+        start_req = -1;
+        for (i = 0; i < count; i++) {
+            if (request_ptrs[i] == NULL) {
+                continue;
+            } else {
+                reqs_to_poke[0] = i;
+                start_req = i+1;
+                num_reqs_to_poke++;
+                break;
+            }
+        }
+
+        if (num_reqs_to_poke == 0) {
+            /* All requests are NULL */
+            *flag = TRUE;
+            goto fn_exit;
+        } else {
+            /* Find out which other reqs point to different VCIs */
+            int found;
+            for (i = start_req; i < count; i++) {
+                if (request_ptrs[i] == NULL)
+                    continue;
+
+                vci_of_req = MPIDI_REQUEST(request_ptrs[i], vci);
+
+                /* Find if the VCI of this req is the same as the ones that will be poked */
+                found = 0;
+                for (j = 0; j < num_reqs_to_poke; j++) {
+                    if (MPIDI_REQUEST(request_ptrs[reqs_to_poke[j]], vci) == vci_of_req) {
+                        found = 1;
+                        break;
+                    }
+                }
+                if (!found) {
+                    /* Add this req to the array of reqs to poke */
+                    reqs_to_poke[num_reqs_to_poke] = i;
+                    num_reqs_to_poke++;
+                }
+            }
+        }
+
+        /* Poke the required reqs at least once */
+        for (i = 0; i < num_reqs_to_poke; i++) {
+            /* Per-VCI progress on this req */
+            mpi_errno = MPID_Progress_test_req(request_ptrs[reqs_to_poke[i]]);
+            if (mpi_errno)
+                MPIR_ERR_POP(mpi_errno);
+        }
+
+        /* Iterate over the request to check for completions */
+        n_completed = 0;
+        for (i = 0; i < count; i++) {
+            if ((i + 1) % MPIR_CVAR_REQUEST_POLL_FREQ == 0) {
+                for (j = 0; j < num_reqs_to_poke; j++) {
+                    /* Per-VCI progress on this req */
+                    mpi_errno = MPID_Progress_test_req(request_ptrs[reqs_to_poke[j]]);
+                    if (mpi_errno)
+                        MPIR_ERR_POP(mpi_errno);
+                }       
+            }
+            
+            if (request_ptrs[i] == NULL || MPIR_Request_is_complete(request_ptrs[i])) {
+                n_completed++;
+            } else {
+                break;
+            }
+        }
+
+        *flag = (n_completed == count) ? TRUE : FALSE;
+
+  fn_exit:
+    return mpi_errno;
+  fn_fail:
+    goto fn_exit;
+    } else {
+        /* Non-VCI aware implementation */
+        return MPIR_Testall_impl(count, request_ptrs, flag, array_of_statuses, requests_property);
+    }
 }
 
 MPL_STATIC_INLINE_PREFIX int MPID_Testany(int count, MPIR_Request * request_ptrs[],
