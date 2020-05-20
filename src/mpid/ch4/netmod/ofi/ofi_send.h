@@ -248,24 +248,27 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
     char *send_buf;
     uint64_t match_bits;
     int my_vni, dest_vni;
-
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_SEND_NORMAL);
 
     MPIDI_OFI_REQUEST_CREATE_CONDITIONAL(sreq, MPIR_REQUEST_KIND__SEND, vci);
     *request = sreq;
-    MPIDI_REQUEST(*request, vci) = vci; 
+    MPIDI_REQUEST(*request, vci) = vci; /* This is redundant since VCI info is stored during req creation */ 
     match_bits = MPIDI_OFI_init_sendtag(comm->context_id + context_offset, comm->rank, tag, type);
     MPIDI_OFI_REQUEST(sreq, event_id) = MPIDI_OFI_EVENT_SEND;
     MPIDI_OFI_REQUEST(sreq, datatype) = datatype;
     MPIR_Datatype_add_ref_if_not_builtin(datatype);
 
+    my_vni = MPIDI_VCI(vci).vni;
+    /* For now, VNI i communicates with only VNI i of every other process */
+    dest_vni = my_vni;
+
     if (type == MPIDI_OFI_SYNC_SEND) {  /* Branch should compile out */
-        printf("OFI_send_normal: Sync send not implemented for multiple VCIs!\n");
         int c = 1;
         uint64_t ssend_match, ssend_mask;
         MPIDI_OFI_ssendack_request_t *ackreq;
-        ackreq = MPL_malloc(sizeof(MPIDI_OFI_ssendack_request_t), MPL_MEM_OTHER);
+        //ackreq = MPL_malloc(sizeof(MPIDI_OFI_ssendack_request_t), MPL_MEM_OTHER);
+        ackreq = MPL_aligned_alloc(MPIDI_OFI_CACHELINE_SIZE, sizeof(MPIDI_OFI_ssendack_request_t), MPL_MEM_OTHER);
         MPIR_ERR_CHKANDJUMP1(ackreq == NULL, mpi_errno, MPI_ERR_OTHER, "**nomem",
                              "**nomem %s", "Ssend ack request alloc");
         ackreq->event_id = MPIDI_OFI_EVENT_SSEND_ACK;
@@ -274,15 +277,15 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         ssend_match =
             MPIDI_OFI_init_recvtag(&ssend_mask, comm->context_id + context_offset, rank, tag);
         ssend_match |= MPIDI_OFI_SYNC_SEND_ACK;
-        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(0).rx,      /* endpoint    */
+        MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(my_vni).rx,      /* endpoint    */
                                       NULL,     /* recvbuf     */
                                       0,        /* data sz     */
                                       NULL,     /* memregion descr  */
-                                      MPIDI_OFI_av_to_phys(addr),       /* remote proc */
+                                      MPIDI_OFI_av_to_phys_target_vni(addr, dest_vni),       /* remote proc */
                                       ssend_match,      /* match bits  */
                                       0ULL,     /* mask bits   */
                                       (void *) &(ackreq->context)), trecvsync, MPIDI_OFI_CALL_LOCK,
-                             FALSE, MPIDI_VCI_ROOT);
+                             FALSE, vci);
     }
 
     send_buf = (char *) buf + dt_true_lb;
@@ -320,10 +323,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_send_normal(const void *buf, MPI_Aint cou
         MPIDI_OFI_REQUEST(sreq, noncontig.pack) = NULL;
         MPIDI_OFI_REQUEST(sreq, noncontig.nopack) = NULL;
     }
-    
-    my_vni = MPIDI_VCI(vci).vni;
-    /* For now, VNI i communicates with only VNI i of every other process */
-    dest_vni = my_vni;
+     
     if (data_sz <= MPIDI_OFI_global.max_buffered_send) {
         mpi_errno =
             MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, send_buf, data_sz, NULL, comm->rank,
@@ -470,9 +470,9 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_send(const void *buf, MPI_Aint count,
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_ssend(const void *buf, MPI_Aint count,
                                                 MPI_Datatype datatype, int rank, int tag,
                                                 MPIR_Comm * comm, int context_offset,
-                                                MPIDI_av_entry_t * addr, MPIR_Request ** request)
+                                                MPIDI_av_entry_t * addr, MPIR_Request ** request,
+                                                int vci)
 {
-    printf("NM_mpi_ssend: Not implemented for multiple VCIs!\n");
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_SSEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_SSEND);
@@ -485,7 +485,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_ssend(const void *buf, MPI_Aint count,
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0);
+                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, vci);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_SSEND);
@@ -521,9 +521,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_isend(const void *buf, MPI_Aint count,
 MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_issend(const void *buf, MPI_Aint count,
                                                  MPI_Datatype datatype, int rank, int tag,
                                                  MPIR_Comm * comm, int context_offset,
-                                                 MPIDI_av_entry_t * addr, MPIR_Request ** request)
+                                                 MPIDI_av_entry_t * addr, MPIR_Request ** request, int vci)
 {
-    printf("NM_mpi_issend: Not implemented for multiple VCIs!\n");
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_ISSEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_NM_MPI_ISSEND);
@@ -536,7 +535,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_issend(const void *buf, MPI_Aint count
 #endif
     {
         mpi_errno = MPIDI_OFI_send(buf, count, datatype, rank, tag, comm,
-                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, 0);
+                                   context_offset, addr, request, 0, MPIDI_OFI_SYNC_SEND, vci);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_ISSEND);

@@ -27,8 +27,8 @@
 #define MPIDI_OFI_COMM_TO_INDEX(comm,rank) \
     MPIDIU_comm_rank_to_pid(comm, rank, NULL, NULL)
 #define MPIDI_OFI_AV_TO_PHYS(av, vni) (MPIDI_OFI_AV(av).dest[vni])
-#define MPIDI_OFI_COMM_TO_PHYS(comm,rank)                       \
-    MPIDI_OFI_AV(MPIDIU_comm_rank_to_av((comm), (rank))).dest[0]
+#define MPIDI_OFI_COMM_TO_PHYS(comm,rank,vni)                       \
+    MPIDI_OFI_AV(MPIDIU_comm_rank_to_av((comm), (rank))).dest[vni]
 #define MPIDI_OFI_TO_PHYS(avtid, lpid)                                 \
     MPIDI_OFI_AV(&MPIDIU_get_av((avtid), (lpid))).dest[0]
 
@@ -356,13 +356,28 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_OFI_win_request_complete(MPIDI_OFI_win_reque
 
 MPL_STATIC_INLINE_PREFIX fi_addr_t MPIDI_OFI_comm_to_phys(MPIR_Comm * comm, int rank)
 {
+    printf("Using OFI comm_to_phys that does NOT SUPPORT multiple VCIs\n");
     if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
         MPIDI_OFI_addr_t *av = &MPIDI_OFI_AV(MPIDIU_comm_rank_to_av(comm, rank));
         int ep_num = MPIDI_OFI_av_to_ep(av);
         int rx_idx = ep_num;
         return fi_rx_addr(av->dest[0], rx_idx, MPIDI_OFI_MAX_ENDPOINTS_BITS);
     } else {
-        return MPIDI_OFI_COMM_TO_PHYS(comm, rank);
+        return MPIDI_OFI_COMM_TO_PHYS(comm, rank, 0);
+    }
+}
+
+MPL_STATIC_INLINE_PREFIX fi_addr_t MPIDI_OFI_comm_to_phys_target_vni(MPIR_Comm * comm, int rank,
+                                                                     int target_vni)
+{
+    if (MPIDI_OFI_ENABLE_SCALABLE_ENDPOINTS) {
+        printf("OFI_comm_to_phys_target_VNI NOT SUPPORTED for scalable endpoints!\n");
+        MPIDI_OFI_addr_t *av = &MPIDI_OFI_AV(MPIDIU_comm_rank_to_av(comm, rank));
+        int ep_num = MPIDI_OFI_av_to_ep(av);
+        int rx_idx = ep_num;
+        return fi_rx_addr(av->dest[0], rx_idx, MPIDI_OFI_MAX_ENDPOINTS_BITS);
+    } else {
+        return MPIDI_OFI_COMM_TO_PHYS(comm, rank, target_vni);
     }
 }
 

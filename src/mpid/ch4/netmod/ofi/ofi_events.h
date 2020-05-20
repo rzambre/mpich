@@ -138,11 +138,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_event(struct fi_cq_tagged_entry *wc,
                                                   MPIDI_OFI_SYNC_SEND_ACK);
         MPIR_Comm *c = MPIDI_OFI_REQUEST(rreq, util_comm);
         int r = rreq->status.MPI_SOURCE;
-        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_CTX(0).tx, NULL, 0, NULL,
+        /* TODO: replace with MPIDI_vci_get(comm, rank, tag) */
+        int vci = MPIDI_COMM_VCI(c);
+        int my_vni = MPIDI_VCI(vci).vni;
+        int dest_vni = my_vni;
+
+        mpi_errno = MPIDI_OFI_send_handler(MPIDI_OFI_CTX(my_vni).tx, NULL, 0, NULL,
                                            MPIDI_OFI_REQUEST(rreq, util_comm->rank),
-                                           MPIDI_OFI_comm_to_phys(c, r),
+                                           MPIDI_OFI_comm_to_phys_target_vni(c, r, dest_vni),
                                            ss_bits, NULL, MPIDI_OFI_DO_INJECT,
-                                           MPIDI_OFI_CALL_NO_LOCK, FALSE, MPIDI_VCI_ROOT);
+                                           MPIDI_OFI_CALL_NO_LOCK, FALSE, vci);
         if (mpi_errno)
             MPIR_ERR_POP(mpi_errno);
     }

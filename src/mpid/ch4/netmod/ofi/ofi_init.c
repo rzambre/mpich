@@ -1156,7 +1156,8 @@ int MPIDI_OFI_get_local_upids(MPIR_Comm * comm, size_t ** local_upid_size, char 
 
     for (i = 0; i < comm->local_size; i++) {
         (*local_upid_size)[i] = MPIDI_OFI_global.addrnamelen;
-        MPIDI_OFI_CALL(fi_av_lookup(MPIDI_OFI_global.av, MPIDI_OFI_COMM_TO_PHYS(comm, i),
+        printf("multi VCI not supported for OFI_get_local_upids!\n");
+        MPIDI_OFI_CALL(fi_av_lookup(MPIDI_OFI_global.av, MPIDI_OFI_COMM_TO_PHYS(comm, i, 0),
                                     &temp_buf[i * MPIDI_OFI_global.addrnamelen],
                                     &(*local_upid_size)[i]), avlookup);
         total_size += (*local_upid_size)[i];
