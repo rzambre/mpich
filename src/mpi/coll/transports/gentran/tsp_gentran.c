@@ -317,6 +317,8 @@ int MPII_Genutil_queue_sched_enqueue(MPII_Genutil_sched_t * sched, MPIR_Comm * c
      */
     MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_TSP_QUEUE_MUTEX);
 
+    printf("Activating Gentran schedule! MODIFY YOUR CODE for multi VCI!\n");
+
     if (MPII_coll_queue.head == NULL)
         MPID_Progress_activate_hook(MPII_Genutil_queue_progress_hook_id);
     DL_APPEND(MPII_coll_queue.head, &(reqp->u.nbc.coll));

@@ -15,23 +15,22 @@
 
 #define MPIDI_MAX_VCI_PROGRESS_ATTEMPTS 1000000
 
-MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_hooks(void)
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_hooks(int vci)
 {
-    int mpi_errno, made_progress, i, active;
+    int mpi_errno, made_progress, active;
     mpi_errno = MPI_SUCCESS;
-    
-    for (i = 0; i < MPIDI_global.registered_progress_hooks; i++) {
-        progress_func_ptr_t func_ptr = NULL;
-        active = OPA_load_int(&MPIDI_global.progress_hooks[i].active);
-        if (active == TRUE) {
-            func_ptr = MPIDI_global.progress_hooks[i].func_ptr;
-            MPIR_Assert(func_ptr != NULL);
-            mpi_errno = func_ptr(&made_progress);
-            if (mpi_errno)
-                MPIR_ERR_POP(mpi_errno);
-        }
-    }
 
+    /* TODO: generalize progress hooks to be per-VCI so that we 
+     * can call any kind of progress hooks here. Focusing only on
+     * MPID_Sched hooks now since Gentran is not used by default
+     * and HCOLL is probably not going to be experimented with. */
+    active = OPA_load_int(&MPIDI_VCI(vci).nbc_sched_list.active);
+    if (active == TRUE) {
+        mpi_errno = MPIDU_Sched_list_progress(&made_progress, vci);
+        if (mpi_errno)
+            MPIR_ERR_POP(mpi_errno);
+    }
+    
   fn_exit:
     return mpi_errno;
   fn_fail:
@@ -96,18 +95,21 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_global(MPIDI_hook_flags_t hook_
     int mpi_errno, vci;
     mpi_errno = MPI_SUCCESS;
 
-    /* Progress the registered hooks */
-    if (hook_flags & MPIDI_PROGRESS_HOOKS) {
-        mpi_errno = MPIDI_Progress_test_hooks();
-        if (mpi_errno != MPI_SUCCESS) {
-            MPIR_ERR_POP(mpi_errno);
-        }
-    }
-    /* todo: progress unexp_list */
-
     /* Progress all the allocated VCIs */
     for (vci = 0; vci < MPIDI_VCI_POOL(max_vcis); vci++) {
+        
         if (!MPIDI_VCI(vci).is_free) {
+
+            /* Progress the schedules of this VCI */
+            if (hook_flags & MPIDI_PROGRESS_HOOKS) {
+                mpi_errno = MPIDI_Progress_test_hooks(vci);
+                if (mpi_errno != MPI_SUCCESS) {
+                    MPIR_ERR_POP(mpi_errno);
+                }
+            }
+            /* todo: progress unexp_list */
+            
+            /* Progress this VCI */
             mpi_errno = MPIDI_Progress_test_vci(hook_flags, vci);
             if (mpi_errno != MPI_SUCCESS) {
                 MPIR_ERR_POP(mpi_errno);
@@ -140,7 +142,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(MPIDI_hook_flags_t hook_flags,
         case MPIDI_PROGRESS_TYPE__VCI:
             /* progress the VCI */
             if (hook_flags & MPIDI_PROGRESS_HOOKS) {
-                mpi_errno = MPIDI_Progress_test_hooks();
+                mpi_errno = MPIDI_Progress_test_hooks(vci);
                 if (mpi_errno != MPI_SUCCESS) {
                     MPIR_ERR_POP(mpi_errno);
                 }
@@ -213,7 +215,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_test_req(MPIR_Request * req)
         /* Per-VCI progress (this version is without recursive locking) 
          * (possible to implement a version with recursive locking to
          * be consistent with how per-VCI progress is invoked in wait_req) */
-        ret = MPIDI_Progress_test_hooks();
+        ret = MPIDI_Progress_test_hooks(vci);
         if (ret != MPI_SUCCESS) {
             MPIR_ERR_POP(ret);
         }
@@ -262,23 +264,27 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait_req(MPIR_Request * req)
     vci = MPIDI_REQUEST(req, vci);
 
     /* Progress the VCI on which the operation was stored for
-     * MAX_VCI_PROGRESS_ATTEMPTS before calling global progress */
+     * MAX_VCI_PROGRESS_ATTEMPTS before calling global progress */ 
     do {
         if (vci_progress_attempts == MPIDI_MAX_VCI_PROGRESS_ATTEMPTS) {
+            /* Global progress */
             ret = MPIDI_Progress_test(MPIDI_PROGRESS_ALL, MPIDI_PROGRESS_TYPE__GLOBAL, 0);
             if (ret != MPI_SUCCESS) {
                 MPIR_ERR_POP(ret);
             }
+
             vci_progress_attempts = 0;
         } else {
+            /* Per-VCI progress */
             ret = MPIDI_Progress_test(MPIDI_PROGRESS_ALL, MPIDI_PROGRESS_TYPE__VCI, vci);
             if (ret != MPI_SUCCESS) {
                 MPIR_ERR_POP(ret);
             }
+            
             vci_progress_attempts++;
         }
     } while (!MPIR_Request_is_complete(req));
-
+    
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_WAIT_REQ);
     return ret;
@@ -318,7 +324,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_wait(MPID_Progress_state * state)
 }
 
 
-MPL_STATIC_INLINE_PREFIX int MPID_Progress_register(int (*progress_fn) (int *), int *id)
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_register(int (*progress_fn) (int *, int), int *id)
 {
     int mpi_errno = MPI_SUCCESS;
     int i;
@@ -395,6 +401,29 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_activate(int id)
     return mpi_errno;
 }
 
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_activate_sched(int vci)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int active;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_ACTIVATE_SCHED);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_ACTIVATE_SCHED);
+
+    MPIR_Assert(vci >= 0);
+    MPIR_Assert(vci < MPIDI_VCI_POOL(max_vcis));
+    /* Asserting that active == FALSE shouldn't be done outside the global lock
+     * model. With fine-grained locks, two threads might try to activate the same
+     * hook concurrently, in which case one of them will correctly detect that
+     * active == TRUE because the other thread set it.*/
+
+    active = OPA_load_int(&MPIDI_VCI(vci).nbc_sched_list.active);
+    if (active == FALSE) {
+        OPA_store_int(&MPIDI_VCI(vci).nbc_sched_list.active, TRUE);
+    }
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_ACTIVATE_SCHED);
+    return mpi_errno;
+}
+
 /* This function is thread-unsafe. User must ensure protection
  * for concurrent calls to MPID_Progress_activate and
  * MPID_Progress_deactivate */
@@ -417,6 +446,25 @@ MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate(int id)
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_DEACTIVATE);
+    return mpi_errno;
+}
+
+MPL_STATIC_INLINE_PREFIX int MPID_Progress_deactivate_sched(int vci)
+{
+    int mpi_errno = MPI_SUCCESS;
+    int active;
+    MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_PROGRESS_DEACTIVATE_SCHED);
+    MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_PROGRESS_DEACTIVATE_SCHED);
+
+    MPIR_Assert(vci >= 0);
+    MPIR_Assert(vci < MPIDI_VCI_POOL(max_vcis));
+
+    active = OPA_load_int(&MPIDI_VCI(vci).nbc_sched_list.active);
+    if (active == TRUE) {
+        OPA_store_int(&MPIDI_VCI(vci).nbc_sched_list.active, FALSE);
+    }
+
+    MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPID_PROGRESS_DEACTIVATE_SCHED);
     return mpi_errno;
 }
 

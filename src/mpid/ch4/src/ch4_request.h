@@ -102,6 +102,7 @@ MPL_STATIC_INLINE_PREFIX int MPID_Request_complete(MPIR_Request * req)
             MPIDI_SHM_am_request_finalize(req);
 #endif
         }
+        /* This could be a source of contention if the reference count of req becomes 0 */
         MPIR_Request_free(req);
     }
 

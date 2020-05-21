@@ -201,7 +201,7 @@ static void vtx_record_completion(MPII_Genutil_vtx_t * vtxp, MPII_Genutil_sched_
 }
 
 
-int MPII_Genutil_queue_progress_hook(int *made_progress)
+int MPII_Genutil_queue_progress_hook(int *made_progress, int vci)
 {
     int count = 0;
     int mpi_errno = MPI_SUCCESS;

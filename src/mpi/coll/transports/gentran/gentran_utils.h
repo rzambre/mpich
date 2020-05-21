@@ -39,7 +39,7 @@ int MPII_Genutil_vtx_create(MPII_Genutil_sched_t * sched, MPII_Genutil_vtx_t ** 
 int MPII_Genutil_sched_poke(MPII_Genutil_sched_t * sched, int *is_complete, int *made_progress);
 
 /* Hook to make progress on nonblocking collective operations  */
-int MPII_Genutil_queue_progress_hook(int *);
+int MPII_Genutil_queue_progress_hook(int *, int);
 
 /* check if there are any pending schedules */
 int MPII_Genutil_queue_has_pending_scheds(void);

@@ -70,6 +70,8 @@ int MPIDI_vci_pool_alloc(int num_vnis)
         MPIDI_VCI(i).is_free = 1;
         
         MPIDI_VCI(i).unsuccessful_test_count = 0;
+        
+        memset(&(MPIDI_VCI(i).nbc_sched_list), 0, sizeof(MPIDI_vci_sched_list_t));
     }
 
     MPID_Thread_mutex_create(&MPIDI_VCI_POOL(lock), &mpi_errno);

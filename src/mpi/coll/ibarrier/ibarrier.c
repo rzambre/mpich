@@ -290,7 +290,7 @@ int MPI_Ibarrier(MPI_Comm comm, MPI_Request * request)
 
     /* create a complete request, if needed */
     if (!request_ptr)
-        request_ptr = MPIR_Request_create_complete(MPIR_REQUEST_KIND__COLL);
+        request_ptr = MPID_Request_create_complete_safe(MPIR_REQUEST_KIND__COLL, MPIDI_COMM_VCI(comm_ptr));
     /* return the handle of the request to the user */
     *request = request_ptr->handle;
 

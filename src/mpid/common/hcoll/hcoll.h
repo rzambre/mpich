@@ -40,6 +40,6 @@ int hcoll_Alltoallv(const void *sbuf, const int *scounts, const int *sdispls, MP
                     void *rbuf, const int *rcounts, const int *rdispls, MPI_Datatype rdtype,
                     MPIR_Comm * comm_ptr, MPIR_Errflag_t * err);
 
-int hcoll_do_progress(int *made_progress);
+int hcoll_do_progress(int *made_progress, int vci);
 
 #endif /* HCOLL_H_INCLUDED */

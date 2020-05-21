@@ -580,7 +580,14 @@ typedef enum {
 } MPIDI_vci_type_t;
 
 #define MPIDI_MAX_REQUEST_CACHE_COUNT 1*1024
- /* VCI */
+
+typedef struct MPIDI_vci_sched_list {
+    struct MPIDU_Sched_element *head;
+    /* no need for a tail with utlist */
+    OPA_int_t active;
+} MPIDI_vci_sched_list_t;
+
+/* VCI */
 typedef struct MPIDI_vci {
     char padding[64];           /* cache-alignment */
     MPID_Thread_mutex_t lock;   /* lock to protect the objects in this VCI */
@@ -592,6 +599,7 @@ typedef struct MPIDI_vci {
     int vni;                    /* index to the VNI in the netmod's pool */
     int vsi;                    /* index to the VSI in the shmmod's pool */
     int unsuccessful_test_count;             /* number of calls to progress during MPI_Test */
+    MPIDI_vci_sched_list_t nbc_sched_list;
 } MPIDI_vci_t;
 
  /* VCI pool */
