@@ -143,10 +143,9 @@ struct MPIDU_Sched_list MPIDU_all_schedules = { NULL };
 int MPIDU_Sched_list_has_pending_sched(void)
 {
     int ret;
-
-    MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
+    
+    /* This only gets called in CH3 */
     ret = (MPIDU_all_schedules.head != NULL);
-    MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
 
     return ret;
 }
@@ -180,13 +179,15 @@ int MPIDU_Sched_list_get_next_tag(MPIR_Comm * comm_ptr, int *tag)
         end = tag_ub / 2;
     }
     if (start != MPI_UNDEFINED) {
-        MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
-        DL_FOREACH(MPIDU_all_schedules.head, elt) {
+        /* TODO: replace with MPIDI_vci_get? */
+        int vci = MPIDI_COMM_VCI(comm_ptr);
+        MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+        DL_FOREACH(MPIDI_VCI(vci).nbc_sched_list.head, elt) {
             if (elt->tag >= start && elt->tag < end) {
                 MPIR_ERR_SETANDJUMP(mpi_errno, MPI_ERR_OTHER, "**toomanynbc");
             }
         }
-        MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
+        MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
     }
 #endif
 
@@ -461,10 +462,20 @@ int MPIDU_Sched_list_enqueue_sched(MPIR_Sched_element_t * sp, MPIR_Comm * comm, 
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *r;
+    int vci;
     struct MPIDU_Sched_element *s = *sp;
+    MPIDI_vci_sched_list_t *vci_sched_list;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDU_SCHED_START);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDU_SCHED_START);
+
+    /* NOTE: Not inside a critical section here.
+     * Need to use thread_safe functions or take a lock
+     */
+
+    /* TODO: replace with MPIDI_vci_get? */
+    vci = MPIDI_COMM_VCI(comm);
+    vci_sched_list = &MPIDI_VCI(vci).nbc_sched_list;
 
     *req = NULL;
     *sp = MPIR_SCHED_NULL;
@@ -478,7 +489,7 @@ int MPIDU_Sched_list_enqueue_sched(MPIR_Sched_element_t * sp, MPIR_Comm * comm, 
     MPIR_Assert(s->entries != NULL);
 
     /* now create and populate the request */
-    r = MPIR_Request_create(MPIR_REQUEST_KIND__COLL);
+    r = MPID_Request_create_safe(MPIR_REQUEST_KIND__COLL, vci);
     if (!r)
         MPIR_ERR_SETANDJUMP(mpi_errno, MPI_ERR_OTHER, "**nomem");
     /* FIXME is this right when comm/datatype GC is used? */
@@ -511,12 +522,12 @@ int MPIDU_Sched_list_enqueue_sched(MPIR_Sched_element_t * sp, MPIR_Comm * comm, 
      * issues another non-blocking collective operation, which is incorrect since
      * the user may not issue another non-blocking collective operation.
      */
-    MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
-    if (MPIDU_all_schedules.head == NULL)
-        MPID_Progress_activate_hook(MPIR_Nbc_progress_hook_id);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
+    if (vci_sched_list->head == NULL)
+        MPID_Progress_activate_sched(vci);
 
-    DL_APPEND(MPIDU_all_schedules.head, s);
-    MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
+    DL_APPEND(vci_sched_list->head, s);
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
 
     MPL_DBG_MSG_P(MPIR_DBG_COMM, TYPICAL, "started schedule s=%p\n", s);
     if (MPIR_CVAR_COLL_SCHED_DUMP)
@@ -899,7 +910,7 @@ int MPIDU_Sched_element_cb2(MPIR_Sched_element_cb2_t * cb_p, void *cb_state, voi
 
 
 /* returns TRUE in (*made_progress) if any of the outstanding schedules in state completed */
-static int MPIDU_Sched_list_progress_scheds(struct MPIDU_Sched_list *state, int *made_progress)
+static int MPIDU_Sched_list_progress_scheds(MPIDI_vci_sched_list_t *state, int *made_progress, int vci)
 {
     int mpi_errno = MPI_SUCCESS;
     size_t i;
@@ -925,7 +936,7 @@ static int MPIDU_Sched_list_progress_scheds(struct MPIDU_Sched_list *state, int 
                             e->status = MPIDU_SCHED_ENTRY_STATUS_FAILED;
                         else
                             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
-                        MPIR_Request_free(e->u.send.sreq);
+                        MPID_Request_free_unsafe(e->u.send.sreq);
                         e->u.send.sreq = NULL;
                         MPIR_Comm_release(e->u.send.comm);
                         MPIR_Datatype_release_if_not_builtin(e->u.send.datatype);
@@ -947,7 +958,7 @@ static int MPIDU_Sched_list_progress_scheds(struct MPIDU_Sched_list *state, int 
                             e->status = MPIDU_SCHED_ENTRY_STATUS_FAILED;
                         else
                             e->status = MPIDU_SCHED_ENTRY_STATUS_COMPLETE;
-                        MPIR_Request_free(e->u.recv.rreq);
+                        MPID_Request_free_unsafe(e->u.recv.rreq);
                         e->u.recv.rreq = NULL;
                         MPIR_Comm_release(e->u.recv.comm);
                         MPIR_Datatype_release_if_not_builtin(e->u.recv.datatype);
@@ -1015,17 +1026,20 @@ static int MPIDU_Sched_list_progress_scheds(struct MPIDU_Sched_list *state, int 
 }
 
 /* returns TRUE in (*made_progress) if any of the outstanding schedules completed */
-int MPIDU_Sched_list_progress(int *made_progress)
+int MPIDU_Sched_list_progress(int *made_progress, int vci)
 {
     int mpi_errno;
+    MPIDI_vci_sched_list_t *vci_sched_list;
 
-    MPID_THREAD_CS_ENTER(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
+    MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI(vci).lock);
 
-    mpi_errno = MPIDU_Sched_list_progress_scheds(&MPIDU_all_schedules, made_progress);
-    if (!mpi_errno && MPIDU_all_schedules.head == NULL)
-        MPID_Progress_deactivate_hook(MPIR_Nbc_progress_hook_id);
+    vci_sched_list = &MPIDI_VCI(vci).nbc_sched_list;
 
-    MPID_THREAD_CS_EXIT(VCI, MPIDIU_THREAD_SCHED_LIST_MUTEX);
+    mpi_errno = MPIDU_Sched_list_progress_scheds(vci_sched_list, made_progress, vci);
+    if (!mpi_errno && vci_sched_list->head == NULL)
+        MPID_Progress_deactivate_sched(vci);
+
+    MPID_THREAD_CS_EXIT(VCI, MPIDI_VCI(vci).lock);
 
     return mpi_errno;
 }

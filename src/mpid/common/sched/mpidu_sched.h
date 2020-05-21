@@ -119,7 +119,7 @@ struct MPIDU_Sched_element {
 };
 
 /* prototypes */
-int MPIDU_Sched_list_progress(int *made_progress);
+int MPIDU_Sched_list_progress(int *made_progress, int vci);
 int MPIDU_Sched_list_has_pending_sched(void);
 int MPIDU_Sched_list_get_next_tag(struct MPIR_Comm *comm_ptr, int *tag);
 int MPIDU_Sched_element_create(MPIR_Sched_element_t * sp);

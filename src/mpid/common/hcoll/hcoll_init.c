@@ -198,7 +198,7 @@ int hcoll_comm_destroy(MPIR_Comm * comm_ptr, void *param)
     goto fn_exit;
 }
 
-int hcoll_do_progress(int *made_progress)
+int hcoll_do_progress(int *made_progress, int vci)
 {
     *made_progress = 1;
     hcoll_progress_fn();

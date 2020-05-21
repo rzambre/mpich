@@ -56,7 +56,7 @@ static void progress(void)
         /* FIXME: The hcoll library needs to be updated to return
          * error codes.  The progress function pointer right now
          * expects that the function returns void. */
-        ret = hcoll_do_progress(&made_progress);
+        ret = hcoll_do_progress(&made_progress, 0);
         MPIR_Assert(ret == MPI_SUCCESS);
     }
 }

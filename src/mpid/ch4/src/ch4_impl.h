@@ -18,7 +18,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test(MPIDI_hook_flags_t hook_flags,
                                                  MPIDI_progress_type_t progress_type, int vci);
 MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_global(MPIDI_hook_flags_t hook_flags);
 MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_vci(MPIDI_hook_flags_t hook_flags, int vci);
-MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_hooks(void);
+MPL_STATIC_INLINE_PREFIX int MPIDI_Progress_test_hooks(int vci);
 int MPIDIG_get_context_index(uint64_t context_id);
 uint64_t MPIDIG_generate_win_id(MPIR_Comm * comm_ptr);
 /* Collectively allocate shared memory region.

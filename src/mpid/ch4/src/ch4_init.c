@@ -329,7 +329,6 @@ int MPID_Init(int *argc, char ***argv, int requested, int *provided, int *has_ar
     MPID_Thread_mutex_create(&MPIDIU_THREAD_PROGRESS_MUTEX, &thr_err);
     MPID_Thread_mutex_create(&MPIDIU_THREAD_UTIL_MUTEX, &thr_err);
     MPID_Thread_mutex_create(&MPIDIU_THREAD_MPIDIG_GLOBAL_MUTEX, &thr_err);
-    MPID_Thread_mutex_create(&MPIDIU_THREAD_SCHED_LIST_MUTEX, &thr_err);
     MPID_Thread_mutex_create(&MPIDIU_THREAD_TSP_QUEUE_MUTEX, &thr_err);
 
 #if defined(MPIDI_CH4_USE_WORK_QUEUES)
