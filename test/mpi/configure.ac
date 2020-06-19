@@ -279,6 +279,11 @@ AC_ARG_ENABLE(xfail,
 		[Run tests marked for expected failure])],,
 	[enable_xfail=no])
 
+AC_ARG_ENABLE(gpu-only,
+        [AC_HELP_STRING([--enable-gpu-only],
+                [Run only GPU tests])],,
+        [enable_gpu_only=no])
+
 # DTPools test generation
 AC_ARG_WITH(dtpools-datatypes,
     [AC_HELP_STRING([--with-dtpools-datatypes=typelist],
@@ -472,6 +477,12 @@ if test "$enable_xfail" = "yes" ; then
     RUN_XFAIL=true
 fi
 AC_SUBST(RUN_XFAIL)
+
+# GPU only tests
+if test $have_cuda = "no" -a $enable_gpu_only = "yes" ; then
+    AC_MSG_ERROR([GPU only test configuration requires CUDA])
+fi
+AM_CONDITIONAL([GPU_ONLY], [test $enable_gpu_only = "yes"])
 
 PAC_LOAD_BASE_CACHE
 PAC_VPATH_CHECK()
