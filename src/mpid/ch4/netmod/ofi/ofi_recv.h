@@ -29,7 +29,7 @@
 MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_t data_sz,      /* data_sz passed in here for reusing */
                                                 int rank, uint64_t match_bits, uint64_t mask_bits,
                                                 MPIR_Comm * comm, MPIR_Context_id_t context_id,
-                                                MPIDI_av_entry_t * addr, int vci, MPIR_Request * rreq,
+                                                MPIDI_av_entry_t * addr, int hst_vci, int rmt_vci, MPIR_Request * rreq,
                                                 MPIR_Datatype * dt_ptr, uint64_t flags)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -145,9 +145,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_
 
     MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV_NOPACK;
 
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VCI i communicates only with VCI i on other ranks */
-    rmt_vni = hst_vni;
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vni).vni;
     
     MPIDI_OFI_ASSERT_IOVEC_ALIGN(originv);
     msg.msg_iov = originv;
@@ -160,7 +159,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_recv_iov(void *buf, MPI_Aint count, size_
     msg.addr = (MPI_ANY_SOURCE == rank) ? FI_ADDR_UNSPEC : MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni);
 
     MPIDI_OFI_CALL_RETRY(fi_trecvmsg(MPIDI_OFI_CTX(hst_vni).rx, &msg, flags), trecv,
-                         MPIDI_OFI_CALL_LOCK, FALSE, vci);
+                         MPIDI_OFI_CALL_LOCK, FALSE, hst_vci);
 
   fn_exit:
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_OFI_RECV_IOV);
@@ -182,7 +181,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
                                                 MPIR_Comm * comm,
                                                 int context_offset,
                                                 MPIDI_av_entry_t * addr,
-                                                int vci,
+                                                int hst_vci, int rmt_vci,
                                                 MPIR_Request ** request, int mode, uint64_t flags)
 {
     int mpi_errno = MPI_SUCCESS;
@@ -201,7 +200,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_OFI_DO_IRECV);
 
     if (mode == MPIDI_OFI_ON_HEAP) {    /* Branch should compile out */
-        MPIDI_OFI_REQUEST_CREATE_CONDITIONAL(rreq, MPIR_REQUEST_KIND__RECV, vci);
+        MPIDI_OFI_REQUEST_CREATE_CONDITIONAL(rreq, MPIR_REQUEST_KIND__RECV, hst_vci);
         /* Need to set the source to UNDEFINED for anysource matching */
         rreq->status.MPI_SOURCE = MPI_UNDEFINED;
     } else if (mode == MPIDI_OFI_USE_EXISTING) {
@@ -212,7 +211,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     }
 
     *request = rreq;
-    MPIDI_REQUEST(*request, vci) = vci;
+    MPIDI_REQUEST(*request, vci) = hst_vci;
 
     match_bits = MPIDI_OFI_init_recvtag(&mask_bits, context_id, rank, tag);
 
@@ -226,7 +225,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
         if (MPIDI_OFI_ENABLE_PT2PT_NOPACK && data_sz <= MPIDI_OFI_global.max_msg_size) {
             mpi_errno =
                 MPIDI_OFI_recv_iov(buf, count, data_sz, rank, match_bits, mask_bits, comm,
-                                   context_id, addr, vci, rreq, dt_ptr, flags);
+                                   context_id, addr, hst_vci, rmt_vci, rreq, dt_ptr, flags);
             if (mpi_errno == MPI_SUCCESS)       /* Receive posted using iov */
                 goto fn_exit;
             else if (mpi_errno != MPIDI_OFI_RECV_NEEDS_UNPACK)
@@ -260,9 +259,8 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
     } else if (MPIDI_OFI_REQUEST(rreq, event_id) != MPIDI_OFI_EVENT_RECV_PACK)
         MPIDI_OFI_REQUEST(rreq, event_id) = MPIDI_OFI_EVENT_RECV;
     
-    hst_vni = MPIDI_VCI(vci).vni;
-    /* For now, VCI i communicates only with VCI i on other ranks */
-    rmt_vni = hst_vni;
+    hst_vni = MPIDI_VCI(hst_vci).vni;
+    rmt_vni = MPIDI_VCI(rmt_vci).vni;
     
     if (!flags) /* Branch should compile out */
         MPIDI_OFI_CALL_RETRY(fi_trecv(MPIDI_OFI_CTX(hst_vni).rx,
@@ -273,7 +271,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_OFI_do_irecv(void *buf,
                                        rank) ? FI_ADDR_UNSPEC :
                                       MPIDI_OFI_av_to_phys_target_vni(addr, hst_vni, rmt_vni), match_bits,
                                       mask_bits, (void *) &(MPIDI_OFI_REQUEST(rreq, context))),
-                             trecv, MPIDI_OFI_CALL_LOCK, FALSE, vci);
+                             trecv, MPIDI_OFI_CALL_LOCK, FALSE, hst_vci);
     else {
         printf("Not VCI aware!\n");
         MPIDI_OFI_request_util_iov(rreq)->iov_base = recv_buf;
@@ -309,7 +307,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv(void *buf,
                                                MPIR_Comm * comm,
                                                int context_offset, MPIDI_av_entry_t * addr,
                                                MPI_Status * status, MPIR_Request ** request,
-                                               int vci)
+                                               int hst_vci, int rmt_vci)
 {
     int mpi_errno;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_RECV);
@@ -323,7 +321,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_recv(void *buf,
 #endif
     {
         mpi_errno = MPIDI_OFI_do_irecv(buf, count, datatype, rank, tag, comm,
-                                       context_offset, addr, vci, request, MPIDI_OFI_ON_HEAP, 0ULL);
+                                       context_offset, addr, hst_vci, rmt_vci, request, MPIDI_OFI_ON_HEAP, 0ULL);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_RECV);
@@ -372,7 +370,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_imrecv(void *buf,
 
         av = MPIDIU_comm_rank_to_av(rreq->comm, message->status.MPI_SOURCE);
         mpi_errno = MPIDI_OFI_do_irecv(buf, count, datatype, message->status.MPI_SOURCE,
-                                       message->status.MPI_TAG, rreq->comm, 0, av, 0,
+                                       message->status.MPI_TAG, rreq->comm, 0, av, 0, 0,
                                        &rreq, MPIDI_OFI_USE_EXISTING, FI_CLAIM | FI_COMPLETION);
     }
 
@@ -387,7 +385,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf,
                                                 int tag,
                                                 MPIR_Comm * comm, int context_offset,
                                                 MPIDI_av_entry_t * addr, MPIR_Request ** request,
-                                                int vci)
+                                                int hst_vci, int rmt_vci)
 {
     int mpi_errno = MPI_SUCCESS;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_NM_MPI_IRECV);
@@ -401,7 +399,7 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_NM_mpi_irecv(void *buf,
 #endif
     {
         mpi_errno = MPIDI_OFI_do_irecv(buf, count, datatype, rank, tag, comm,
-                                       context_offset, addr, vci, request, MPIDI_OFI_ON_HEAP, 0ULL);
+                                       context_offset, addr, hst_vci, rmt_vci, request, MPIDI_OFI_ON_HEAP, 0ULL);
     }
 
     MPIR_FUNC_VERBOSE_EXIT(MPID_STATE_MPIDI_NM_MPI_IRECV);
