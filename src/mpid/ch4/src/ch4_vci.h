@@ -20,11 +20,31 @@ int MPIDI_vci_alloc(MPIDI_vci_type_t type, MPIDI_vci_resource_t resources,
                     MPIDI_vci_property_t properties, int *vci);
 int MPIDI_vci_free(int vci);
 
- /** Fast-path functions **/
+/** Fast-path functions **/
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get(MPIR_Comm * comm_ptr, int rank, int tag)
 {
     /* Only single  VCI per comm */
     return MPIDI_COMM_VCI(comm_ptr);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_host_sends(MPIR_Comm * comm_ptr, int rank, int tag)
+{
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 10) & 0x1f);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_remote_sends(MPIR_Comm * comm_ptr, int rank, int tag)
+{
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 5) & 0x1f);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_host_recvs(MPIR_Comm * comm_ptr, int rank, int tag)
+{
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 5) & 0x1f);
+}
+
+MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_remote_recvs(MPIR_Comm * comm_ptr, int rank, int tag)
+{
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 10) & 0x1f);
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_with_tid(MPIR_Comm * comm)
