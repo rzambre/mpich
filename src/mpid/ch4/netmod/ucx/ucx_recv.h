@@ -36,7 +36,9 @@ MPL_STATIC_INLINE_PREFIX void MPIDI_UCX_recv_cmpl_cb(void *request, ucs_status_t
         if (MPIDI_COMM_VCI_COUNT(comm_ptr) == 1) {
             vci = MPIDI_COMM_VCI(comm_ptr);
         } else {
-            vci = (MPIDI_UCX_get_tag(info->sender_tag) == MPI_ANY_TAG) ? 0 : ((MPIDI_UCX_get_tag(info->sender_tag) >> 5) & 0x1f);
+            int tag = MPIDI_UCX_get_tag(info->sender_tag);
+            vci = (tag == MPI_ANY_TAG) ? 0 : ((tag >> MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_app)
+                                & ((1 << MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_vci) - 1));
         }
 
         /* Does not require safety since we are at ucp_tag_recv_nb */

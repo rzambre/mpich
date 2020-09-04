@@ -329,15 +329,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Send(const void *buf,
                                        MPIR_Request ** request)
 {
     int mpi_errno = MPI_SUCCESS;
-    int num_vcis;
     int hst_vci, rmt_vci;
     MPIDI_av_entry_t *av = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_SEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_SEND);
 
     /*TODO: remove this branch to use function pointers */
-    num_vcis = MPIDI_COMM_VCI_COUNT(comm);
-    if (num_vcis == 1) {
+    if (!MPIDI_COMM_VCI_HASH(comm).tag_par) {
         hst_vci = MPIDI_vci_get(comm, rank, tag);
         rmt_vci = hst_vci;
     } else {
@@ -375,15 +373,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Isend(const void *buf,
                                         MPIR_Request ** request)
 {
     int mpi_errno = MPI_SUCCESS;
-    int num_vcis;
     int hst_vci, rmt_vci;
     MPIDI_av_entry_t *av = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_ISEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_ISEND);
 
     /*TODO: remove this branch to use function pointers */
-    num_vcis = MPIDI_COMM_VCI_COUNT(comm);
-    if (num_vcis == 1) {
+    if (!MPIDI_COMM_VCI_HASH(comm).tag_par) {
         hst_vci = MPIDI_vci_get(comm, rank, tag);
         rmt_vci = hst_vci;
     } else {
@@ -430,15 +426,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Rsend(const void *buf,
      */
 
     int mpi_errno = MPI_SUCCESS;
-    int num_vcis;
     int hst_vci, rmt_vci;
     MPIDI_av_entry_t *av = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_RSEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_RSEND);
 
     /*TODO: remove this branch to use function pointers */
-    num_vcis = MPIDI_COMM_VCI_COUNT(comm);
-    if (num_vcis == 1) {
+    if (!MPIDI_COMM_VCI_HASH(comm).tag_par) {
         hst_vci = MPIDI_vci_get(comm, rank, tag);
         rmt_vci = hst_vci;
     } else {
@@ -482,15 +476,13 @@ MPL_STATIC_INLINE_PREFIX int MPID_Irsend(const void *buf,
      */
 
     int mpi_errno = MPI_SUCCESS;
-    int num_vcis;
     int hst_vci, rmt_vci;
     MPIDI_av_entry_t *av = NULL;
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPID_IRSEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPID_IRSEND);
     
     /*TODO: remove this branch to use function pointers */
-    num_vcis = MPIDI_COMM_VCI_COUNT(comm);
-    if (num_vcis == 1) {
+    if (!MPIDI_COMM_VCI_HASH(comm).tag_par) {
         hst_vci = MPIDI_vci_get(comm, rank, tag);
         rmt_vci = hst_vci;
     } else {

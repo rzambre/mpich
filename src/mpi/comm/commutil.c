@@ -164,6 +164,12 @@ void MPIR_Comm_hint_init(void)
                             NULL, MPIR_COMM_HINT_TYPE_BOOL, 0);
     MPIR_Comm_register_hint(MPIR_COMM_HINT_NUM_VCIS, "mpi_num_vcis",
                             NULL, MPIR_COMM_HINT_TYPE_INT, 0);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_TAG_PAR, "mpi_assert_tag_based_parallelism",
+                            NULL, MPIR_COMM_HINT_TYPE_BOOL, 0);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_NUM_TAG_BITS_VCI, "mpi_num_tag_bits_for_vci",
+                            NULL, MPIR_COMM_HINT_TYPE_INT, 0);
+    MPIR_Comm_register_hint(MPIR_COMM_HINT_NUM_TAG_BITS_APP, "mpi_num_tag_bits_for_app",
+                            NULL, MPIR_COMM_HINT_TYPE_INT, 0);
 }
 
 /* FIXME :
@@ -764,6 +770,9 @@ int MPII_Comm_copy(MPIR_Comm * comm_ptr, int size, MPIR_Info * info, MPIR_Comm *
     /* Since hints are never propogated starting MPI-3.2, set defaults for hints */
     newcomm_ptr->hints[MPIR_COMM_HINT_NEW_VCI] = FALSE;
     newcomm_ptr->hints[MPIR_COMM_HINT_NUM_VCIS] = 1;
+    newcomm_ptr->hints[MPIR_COMM_HINT_TAG_PAR] = FALSE;
+    newcomm_ptr->hints[MPIR_COMM_HINT_NUM_TAG_BITS_VCI] = 0;
+    newcomm_ptr->hints[MPIR_COMM_HINT_NUM_TAG_BITS_APP] = 0;
     if (info) {
         MPII_Comm_set_hints(newcomm_ptr, info);
     }
