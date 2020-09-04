@@ -188,8 +188,13 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
                 MPIDIU_avt_add_ref(MPIDI_COMM(comm, local_map).avtid);
         }
 
+        /* Initialize some fields */
+        MPIDI_COMM_VCI_HASH(comm).tag_par = 0;
+        MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_vci = 0;
+        MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_app = 0;
+
         if (MPIR_CONTEXT_READ_FIELD(SUBCOMM, comm->context_id)) {
-            /* If this is a subcommunicator, then use the VCI(s) of the parent*/
+            /* If this is a subcommunicator, then use the VCI policies of the parent*/
             int parent_comm_num_vcis;
             MPID_THREAD_CS_ENTER(VCI, MPIDI_VCI_POOL(lock));
 
@@ -205,6 +210,11 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
                     MPIDI_COMM_MULTI_VCI(comm)[vci_i] =  MPIDI_COMM_MULTI_VCI(comm->parent_comm)[vci_i];
                     MPIDI_VCI(MPIDI_COMM_MULTI_VCI(comm->parent_comm)[vci_i]).ref_count++;
                 }
+                
+                MPIDI_COMM_VCI_HASH(comm).tag_par = MPIDI_COMM_VCI_HASH(comm->parent_comm).tag_par;
+                MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_vci = MPIDI_COMM_VCI_HASH(comm->parent_comm).num_tag_bits_for_vci;
+                MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_app = MPIDI_COMM_VCI_HASH(comm->parent_comm).num_tag_bits_for_app;
+
                 /* FIXME: this is a hack */
                 MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
             }
@@ -267,6 +277,18 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
                         }
                         MPIDI_COMM_MULTI_VCI(comm)[vci_i] = vci;
                     }
+                    
+                    if (comm->hints[MPIR_COMM_HINT_TAG_PAR]) {
+                        printf("Tag parallelism hinted for this comm\n");
+                        MPIDI_COMM_VCI_HASH(comm).tag_par = 1;
+                        
+                        MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_vci = comm->hints[MPIR_COMM_HINT_NUM_TAG_BITS_VCI];
+                        MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_app = comm->hints[MPIR_COMM_HINT_NUM_TAG_BITS_APP];
+                        
+                        MPIR_Assert(((1 << (2*MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_vci + MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_app)) - 1)
+                                <= MPIR_Process.attrs.tag_ub); 
+                    }
+                    
                     /* FIXME: this is a hack */
                     MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
                 }
@@ -289,6 +311,11 @@ int MPID_Comm_create_hook(MPIR_Comm * comm)
                         MPIDI_COMM_MULTI_VCI(comm)[vci_i] =  MPIDI_COMM_MULTI_VCI(comm->orig_comm)[vci_i];
                         MPIDI_VCI(MPIDI_COMM_MULTI_VCI(comm->orig_comm)[vci_i]).ref_count++;
                     }
+                    
+                    MPIDI_COMM_VCI_HASH(comm).tag_par = MPIDI_COMM_VCI_HASH(comm->orig_comm).tag_par;
+                    MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_vci = MPIDI_COMM_VCI_HASH(comm->orig_comm).num_tag_bits_for_vci;
+                    MPIDI_COMM_VCI_HASH(comm).num_tag_bits_for_app = MPIDI_COMM_VCI_HASH(comm->orig_comm).num_tag_bits_for_app;
+                    
                     /* FIXME: this is a hack */
                     MPIDI_COMM_VCI(comm) = MPIDI_VCI_ROOT;
                 }

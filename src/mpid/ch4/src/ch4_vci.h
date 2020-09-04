@@ -29,22 +29,26 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get(MPIR_Comm * comm_ptr, int rank, int t
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_host_sends(MPIR_Comm * comm_ptr, int rank, int tag)
 {
-    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 10) & 0x1f);
+    return (tag == MPI_ANY_TAG) ? 0 : (tag >> (MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_app
+                    + MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_vci));
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_remote_sends(MPIR_Comm * comm_ptr, int rank, int tag)
 {
-    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 5) & 0x1f);
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_app)
+            & ((1 << MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_vci) - 1));
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_host_recvs(MPIR_Comm * comm_ptr, int rank, int tag)
 {
-    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 5) & 0x1f);
+    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_app)
+            & ((1 << MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_vci) - 1));
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_remote_recvs(MPIR_Comm * comm_ptr, int rank, int tag)
 {
-    return (tag == MPI_ANY_TAG) ? 0 : ((tag >> 10) & 0x1f);
+    return (tag == MPI_ANY_TAG) ? 0 : (tag >> (MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_app
+                    + MPIDI_COMM_VCI_HASH(comm_ptr).num_tag_bits_for_vci));
 }
 
 MPL_STATIC_INLINE_PREFIX int MPIDI_vci_get_with_tid(MPIR_Comm * comm)

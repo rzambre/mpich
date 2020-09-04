@@ -505,6 +505,9 @@ typedef struct MPIDI_vci_hash {
         } multi;
     } u;
     int count;
+    int tag_par;
+    int num_tag_bits_for_vci;
+    int num_tag_bits_for_app;
 } MPIDI_vci_hash_t;
 
 typedef struct MPIDI_Devcomm_t {
@@ -532,6 +535,7 @@ typedef struct MPIDI_Devcomm_t {
 #define MPIDI_COMM_VCI(comm) ((comm)->dev.ch4).vci_hash.u.single.vci
 #define MPIDI_COMM_MULTI_VCI(comm) ((comm)->dev.ch4).vci_hash.u.multi.vci
 #define MPIDI_COMM_VCI_COUNT(comm) ((comm)->dev.ch4).vci_hash.count
+#define MPIDI_COMM_VCI_HASH(comm) ((comm)->dev.ch4).vci_hash
 
 typedef struct {
     union {
