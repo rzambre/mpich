@@ -117,7 +117,7 @@ int MPIDI_UCX_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
             ep_params.address = (ucp_address_t *) & MPIDI_UCX_global.pmi_addr_table[bc_indices[i]];
             ucx_status =
                 ucp_ep_create(MPIDI_UCX_VNI(0 /*may be WRONG*/).worker, &ep_params,
-                              &MPIDI_UCX_AV(&MPIDIU_get_av(0, node_roots[i])).dest[0 /*may be WRONG*/]);
+                              &MPIDI_UCX_AV(&MPIDIU_get_av(0, node_roots[i])).dest[0 /*may be WRONG*/][0]);
             MPIDI_UCX_CHK_STATUS(ucx_status);
         }
         MPL_free(node_roots);
@@ -129,7 +129,7 @@ int MPIDI_UCX_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
             ep_params.address = (ucp_address_t *) & MPIDI_UCX_global.pmi_addr_table[bc_indices[i]];
             ucx_status =
                 ucp_ep_create(MPIDI_UCX_VNI(0).worker, &ep_params,
-                              &MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[0]);
+                              &MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[0][0]);
             MPIDI_UCX_CHK_STATUS(ucx_status);
         }
         MPIDU_bc_table_destroy(MPIDI_UCX_global.pmi_addr_table);
@@ -160,7 +160,7 @@ int MPIDI_UCX_mpi_init_hook(int rank, int size, int appnum, int *tag_bits, MPIR_
 int MPIDI_UCX_mpi_finalize_hook(void)
 {
     int mpi_errno = MPI_SUCCESS, pmi_errno;
-    int i, vni, p = 0, completed;
+    int i, p = 0, completed;
     MPIR_Comm *comm;
     ucs_status_ptr_t ucp_request;
     ucs_status_ptr_t *pending;
@@ -171,12 +171,14 @@ int MPIDI_UCX_mpi_finalize_hook(void)
                    MPL_MEM_OTHER);
 
     for (i = 0; i < comm->local_size; i++) {
-        for (vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
-            ucp_request = ucp_disconnect_nb(MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[vni]);
-            MPIDI_UCX_CHK_REQUEST(ucp_request);
-            if (ucp_request != UCS_OK) {
-                pending[p] = ucp_request;
-                p++;
+        for (int vni_local = 0; vni_local < MPIDI_UCX_VNI_POOL(total_vnis); vni_local++) {
+            for (int vni_remote = 0; vni_remote < MPIDI_UCX_VNI_POOL(total_vnis); vni_remote++) {
+                ucp_request = ucp_disconnect_nb(MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[vni_local][vni_remote]);
+                MPIDI_UCX_CHK_REQUEST(ucp_request);
+                if (ucp_request != UCS_OK) {
+                    pending[p] = ucp_request;
+                    p++;
+                }
             }
         }
     }
@@ -185,7 +187,7 @@ int MPIDI_UCX_mpi_finalize_hook(void)
      * deadlock! */
     completed = p;
     while (completed != 0) {
-        for (vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
+        for (int vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
             ucp_worker_progress(MPIDI_UCX_VNI(vni).worker);
         }
         completed = p;
@@ -223,7 +225,7 @@ int MPIDI_UCX_mpi_finalize_hook(void)
 #endif
 
 
-    for (vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
+    for (int vni = 0; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
         if (MPIDI_UCX_VNI(vni).worker != NULL)
             ucp_worker_destroy(MPIDI_UCX_VNI(vni).worker);
     }

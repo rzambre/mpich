@@ -50,44 +50,51 @@ int MPIDI_UCX_mpi_comm_create_hook(MPIR_Comm * comm)
                     (ucp_address_t *) & MPIDI_UCX_global.pmi_addr_table[bc_indices[curr]];
                 ucx_status =
                     ucp_ep_create(MPIDI_UCX_VNI(0 /*WRONG*/).worker, &ep_params,
-                                  &MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[0 /*WRONG*/]);
+                                  &MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[0 /*WRONG*/][0/*WRONG*/]);
                 MPIDI_UCX_CHK_STATUS(ucx_status);
                 curr++;
             }
             MPIDU_bc_table_destroy(MPIDI_UCX_global.pmi_addr_table);
         } else {
            /* Exchange the addresses of the rest of the VNIs using the ROOT VNI */
-            int vni;
-            int my_rank, world_size;
-            MPIR_Errflag_t errflag = MPIR_ERR_NONE;
-            void *vni_addr_table;
+            int world_size = MPIR_Comm_size(comm);
+            int my_rank = MPIR_Comm_rank(comm);
 
-            world_size = MPIR_Comm_size(comm);
-            my_rank = MPIR_Comm_rank(comm);
+            int num_vnis = MPIDI_UCX_VNI_POOL(total_vnis);
+            size_t name_len = 4096;
+            int my_len = num_vnis * name_len;
 
-            for (vni = 1; vni < MPIDI_UCX_VNI_POOL(total_vnis); vni++) {
-                /* Insert my share of the data */
-                vni_addr_table = MPL_malloc(world_size * MPIDI_UCX_VNI(vni).addrname_len, MPL_MEM_ADDRESS);
-                memset(vni_addr_table, 0, world_size * MPIDI_UCX_VNI(vni).addrname_len);
-                memcpy(((char *) vni_addr_table) + my_rank * MPIDI_UCX_VNI(vni).addrname_len,
-                        MPIDI_UCX_VNI(vni).if_address,
-                        MPIDI_UCX_VNI(vni).addrname_len);
+            char *all_names = MPL_malloc(world_size * my_len, MPL_MEM_ADDRESS);
+            char *my_names = all_names + my_rank * my_len;
 
-                /* Broadcast my address and receive everyone else's address for this VNI */
-                MPIR_Allgather(MPI_IN_PLACE, MPIDI_UCX_VNI(vni).addrname_len, MPI_BYTE, vni_addr_table,
-                        MPIDI_UCX_VNI(vni).addrname_len, MPI_BYTE, comm, &errflag);
-                
-                /* Create endpoints to connect to VNI[vni] of all ranks */
-                for (i = 0; i < world_size; i++) {
-                    ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
-                    ep_params.address = (ucp_address_t *) ((char *) vni_addr_table + i * MPIDI_UCX_VNI(vni).addrname_len);
-                    ucx_status =
-                        ucp_ep_create(MPIDI_UCX_VNI(vni).worker, &ep_params,
-                                      &MPIDI_UCX_AV(&MPIDIU_get_av(0, i)).dest[vni]);
-                    MPIDI_UCX_CHK_STATUS(ucx_status);
-                }
-                free(vni_addr_table);
+            for (int i = 0; i < num_vnis; i++) {
+                char *vni_addrname = my_names + i * name_len;
+                memcpy(vni_addrname, MPIDI_UCX_VNI(i).if_address,
+                        MPIDI_UCX_VNI(i).addrname_len);
             }
+
+            MPIR_Errflag_t errflag = MPIR_ERR_NONE;
+            MPIR_Allgather(MPI_IN_PLACE, 0, MPI_BYTE, all_names,
+                    my_len, MPI_BYTE, comm, &errflag);
+
+            for (int vni_local = 0; vni_local < num_vnis; vni_local++) {
+                for (int r = 0; r < world_size; r++) {
+                    MPIDI_UCX_addr_t *av = &MPIDI_UCX_AV(&MPIDIU_get_av(0, r));
+                    for (int vni_remote = 0; vni_remote < num_vnis; vni_remote++) {
+                        if (vni_local == 0 && vni_remote == 0) {
+                            continue;
+                        }
+                        int idx = r * num_vnis + vni_remote;
+                        ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
+                        ep_params.address = (ucp_address_t *) (all_names + idx * name_len);
+
+                        ucs_status_t ucx_status;
+                        ucx_status = ucp_ep_create(MPIDI_UCX_VNI(vni_local).worker,
+                                 &ep_params, &av->dest[vni_local][vni_remote]);
+                        MPIDI_UCX_CHK_STATUS(ucx_status);
+                    }
+                }
+            }            
         }
     }
 #if defined HAVE_LIBHCOLL

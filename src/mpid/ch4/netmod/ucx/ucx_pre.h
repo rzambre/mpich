@@ -63,7 +63,7 @@ typedef struct {
 } MPIDI_UCX_win_t;
 
 typedef struct {
-    ucp_ep_h dest[MPIDI_UCX_MAX_WORKERS];
+    ucp_ep_h dest[MPIDI_UCX_MAX_WORKERS][MPIDI_UCX_MAX_WORKERS];
 } MPIDI_UCX_addr_t;
 
 typedef struct {

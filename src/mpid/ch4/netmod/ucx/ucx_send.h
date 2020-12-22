@@ -47,15 +47,16 @@ MPL_STATIC_INLINE_PREFIX int MPIDI_UCX_send(const void *buf,
     int mpi_errno = MPI_SUCCESS;
     MPIR_Request *req = *request;
     MPIDI_UCX_ucp_request_t *ucp_request;
-    int vni;
+    int hst_vni, rmt_vni;
     ucp_ep_h ep;
     uint64_t ucx_tag;
 
     MPIR_FUNC_VERBOSE_STATE_DECL(MPID_STATE_MPIDI_UCX_SEND);
     MPIR_FUNC_VERBOSE_ENTER(MPID_STATE_MPIDI_UCX_SEND);
 
-    vni = MPIDI_VCI(vci).vni;
-    ep = MPIDI_UCX_AV_TO_EP(addr, vni);
+    hst_vni = MPIDI_VCI(vci).vni;
+    rmt_vni = hst_vni;
+    ep = MPIDI_UCX_AV_TO_EP(addr, hst_vni, rmt_vni);
     ucx_tag = MPIDI_UCX_init_tag(comm->context_id + context_offset, comm->rank, tag);
     MPIDI_Datatype_get_info(count, datatype, dt_contig, data_sz, dt_ptr, dt_true_lb);
 
